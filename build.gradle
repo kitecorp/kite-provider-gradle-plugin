@@ -1,6 +1,7 @@
 plugins {
     id 'java-gradle-plugin'
     id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '1.3.1'
 }
 
 group = 'cloud.kitelang'
@@ -23,12 +24,16 @@ java {
 }
 
 gradlePlugin {
+    website = 'https://github.com/kitecorp/kite-provider-gradle-plugin'
+    vcsUrl = 'https://github.com/kitecorp/kite-provider-gradle-plugin.git'
+
     plugins {
         kiteProvider {
             id = 'cloud.kitelang.provider'
             implementationClass = 'cloud.kitelang.gradle.KiteProviderPlugin'
             displayName = 'Kite Provider Plugin'
-            description = 'Gradle plugin for building Kite infrastructure providers'
+            description = 'Gradle plugin for building Kite infrastructure providers with auto-configuration, fat JAR creation, and manifest generation'
+            tags.set(['kite', 'infrastructure', 'iac', 'provider', 'grpc', 'cloud'])
         }
     }
 }
@@ -41,14 +46,48 @@ publishing {
             pom {
                 name = 'Kite Provider Gradle Plugin'
                 description = 'Gradle plugin for building Kite infrastructure providers'
-                url = 'https://github.com/kitecorp/kite'
+                url = 'https://github.com/kitecorp/kite-provider-gradle-plugin'
+
                 licenses {
                     license {
                         name = 'Apache License 2.0'
                         url = 'https://www.apache.org/licenses/LICENSE-2.0'
                     }
                 }
+
+                developers {
+                    developer {
+                        id = 'kitecorp'
+                        name = 'Kite Team'
+                        url = 'https://github.com/kitecorp'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/kitecorp/kite-provider-gradle-plugin.git'
+                    developerConnection = 'scm:git:ssh://github.com/kitecorp/kite-provider-gradle-plugin.git'
+                    url = 'https://github.com/kitecorp/kite-provider-gradle-plugin'
+                }
             }
         }
     }
+
+    repositories {
+        // GitHub Packages
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/kitecorp/kite-provider-gradle-plugin")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user") ?: ""
+                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token") ?: ""
+            }
+        }
+    }
+}
+
+// Task to publish to all repositories
+tasks.register('publishAll') {
+    dependsOn 'publishPlugins'           // Gradle Plugin Portal
+    dependsOn 'publishAllPublicationsToGitHubPackagesRepository'  // GitHub Packages
+    dependsOn 'publishToMavenLocal'      // Local Maven
 }

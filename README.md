@@ -1,5 +1,8 @@
 # Kite Provider Gradle Plugin
 
+[![CI](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml)
+[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/cloud.kitelang.provider)](https://plugins.gradle.org/plugin/cloud.kitelang.provider)
+
 Gradle plugin that simplifies building infrastructure providers for [Kite](https://github.com/kitecorp/kite), the multi-cloud Infrastructure as Code tool.
 
 ## Features
@@ -13,7 +16,11 @@ Gradle plugin that simplifies building infrastructure providers for [Kite](https
 
 ## Installation
 
-Add the plugin to your `build.gradle`:
+The plugin is available from multiple sources. Choose the one that fits your needs:
+
+### Option 1: Gradle Plugin Portal (Recommended)
+
+The simplest option - no additional repository configuration needed:
 
 ```groovy
 plugins {
@@ -21,7 +28,42 @@ plugins {
 }
 ```
 
-Make sure the plugin is available in your repositories:
+### Option 2: GitHub Packages
+
+For organizations using GitHub Packages:
+
+```groovy
+// settings.gradle
+pluginManagement {
+    repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/kitecorp/kite-provider-gradle-plugin")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: settings.ext.find('gpr.user') ?: ""
+                password = System.getenv("GITHUB_TOKEN") ?: settings.ext.find('gpr.token') ?: ""
+            }
+        }
+        gradlePluginPortal()
+    }
+}
+```
+
+```groovy
+// build.gradle
+plugins {
+    id 'cloud.kitelang.provider' version '0.1.0'
+}
+```
+
+**Note:** GitHub Packages requires authentication. Set `GITHUB_TOKEN` environment variable or add credentials to `~/.gradle/gradle.properties`:
+```properties
+gpr.user=your-github-username
+gpr.token=your-github-token
+```
+
+### Option 3: Maven Local (Development)
+
+For local development or testing unreleased versions:
 
 ```groovy
 // settings.gradle
@@ -33,6 +75,18 @@ pluginManagement {
 }
 ```
 
+```groovy
+// build.gradle
+plugins {
+    id 'cloud.kitelang.provider' version '0.1.0'
+}
+```
+
+Build and install locally:
+```bash
+./gradlew publishToMavenLocal
+```
+
 ## Usage
 
 ### Basic Configuration
@@ -42,8 +96,11 @@ plugins {
     id 'cloud.kitelang.provider' version '0.1.0'
 }
 
+group = 'com.example'
+version = '1.0.0'
+
 kiteProvider {
-    name = 'aws'
+    name = 'my-provider'
     // mainClass auto-detected from class extending ProviderServer/KiteProvider
 }
 
@@ -72,6 +129,7 @@ The plugin registers the following tasks:
 |------|-------------|
 | `installDist` | Creates distribution with launcher scripts |
 | `generateProviderManifest` | Generates `provider.json` (runs after `installDist`) |
+| `generateProviderInfo` | Generates `provider.json` as JAR resource |
 | `installMinDist` | Creates minimized distribution using shadow JAR |
 | `shadowJar` | Creates fat JAR with all dependencies |
 
@@ -90,8 +148,9 @@ build/install/<provider-name>/
 
 ## Example Provider
 
+### build.gradle
+
 ```groovy
-// build.gradle
 plugins {
     id 'cloud.kitelang.provider' version '0.1.0'
 }
@@ -100,7 +159,6 @@ group = 'cloud.kitelang'
 version = '0.1.0'
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
@@ -125,6 +183,20 @@ java {
 }
 ```
 
+### Provider Class
+
+```java
+public class MyCloudProvider extends KiteProvider {
+    public MyCloudProvider() {
+        // Name and version auto-loaded from provider.json
+    }
+
+    public static void main(String[] args) throws Exception {
+        ProviderServer.serve(new MyCloudProvider());
+    }
+}
+```
+
 ## Provider Manifest
 
 The generated `provider.json` follows this format:
@@ -137,6 +209,58 @@ The generated `provider.json` follows this format:
     "executable": "bin/provider"
 }
 ```
+
+This file is generated in two locations:
+1. **Distribution directory** (`build/install/<name>/provider.json`) - for engine discovery
+2. **JAR resource** (`META-INF/kite/provider.json`) - for runtime name/version auto-detection
+
+## Publishing (For Plugin Maintainers)
+
+### To Gradle Plugin Portal
+
+Requires `GRADLE_PUBLISH_KEY` and `GRADLE_PUBLISH_SECRET` from [plugins.gradle.org](https://plugins.gradle.org):
+
+```bash
+./gradlew publishPlugins
+```
+
+Or trigger the GitHub Action by creating a release.
+
+### To GitHub Packages
+
+```bash
+GITHUB_TOKEN=your-token ./gradlew publishAllPublicationsToGitHubPackagesRepository
+```
+
+Or trigger the GitHub Action by creating a release.
+
+### To Maven Local
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+### Publish to All
+
+```bash
+./gradlew publishAll
+```
+
+## CI/CD
+
+This project uses GitHub Actions for:
+
+- **CI** (`ci.yml`) - Builds and tests on every push/PR to main
+- **Publish to Gradle Plugin Portal** (`publish-gradle-portal.yml`) - Publishes on release
+- **Publish to GitHub Packages** (`publish-github-packages.yml`) - Publishes on release
+
+### Required Secrets
+
+| Secret | Description | Required For |
+|--------|-------------|--------------|
+| `GRADLE_PUBLISH_KEY` | Gradle Plugin Portal API key | Gradle Plugin Portal |
+| `GRADLE_PUBLISH_SECRET` | Gradle Plugin Portal API secret | Gradle Plugin Portal |
+| `GITHUB_TOKEN` | Auto-provided by GitHub Actions | GitHub Packages |
 
 ## Requirements
 
