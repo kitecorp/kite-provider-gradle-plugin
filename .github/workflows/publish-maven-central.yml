@@ -36,10 +36,8 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Deploy to Maven Central
-        uses: jreleaser/release-action@v2
-        with:
-          arguments: deploy
+      - name: Deploy to Maven Central (via JReleaser Gradle plugin)
+        run: ./gradlew jreleaserDeploy
         env:
           JRELEASER_PROJECT_VERSION: ${{ github.event.release.tag_name || github.ref_name }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
