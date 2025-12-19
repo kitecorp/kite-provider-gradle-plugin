@@ -69,7 +69,10 @@ publishing {
     publications {
         pluginMaven(MavenPublication) {
             artifactId = 'kite-provider-gradle-plugin'
+        }
 
+        // Configure all publications with required Maven Central metadata
+        withType(MavenPublication) {
             pom {
                 name = 'Kite Provider Gradle Plugin'
                 description = 'Gradle plugin for building Kite infrastructure providers'
