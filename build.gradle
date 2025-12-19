@@ -2,7 +2,7 @@ plugins {
     // Auto-applies: java-gradle-plugin, maven-publish
     id 'com.gradle.plugin-publish' version '2.0.0'
     id 'signing'
-    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
+    id 'org.jreleaser' version '1.21.0'  // For Maven Central via new Central Portal
 }
 
 group = 'cloud.kitelang'
@@ -41,15 +41,40 @@ gradlePlugin {
     }
 }
 
-// Configure Nexus publishing for Maven Central (new portal)
-nexusPublishing {
-    repositories {
-        sonatype {
-            // New Sonatype Central Portal
-            nexusUrl = uri("https://central.sonatype.com/")
-            snapshotRepositoryUrl = uri("https://central.sonatype.com/")
-            username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
-            password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
+// JReleaser configuration for Maven Central via new Central Portal
+jreleaser {
+    project {
+        name = 'kite-provider-gradle-plugin'
+        version = project.version
+        description = 'Gradle plugin for building Kite infrastructure providers'
+        authors = ['Kite Team']
+        license = 'Apache-2.0'
+        links {
+            homepage = 'https://github.com/kitecorp/kite-provider-gradle-plugin'
+        }
+    }
+    release {
+        github {
+            skipRelease = true  // We only want Maven Central deployment
+        }
+    }
+    signing {
+        active = 'ALWAYS'
+        armored = true
+        mode = 'FILE'  // Sign individual files
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                sonatype {
+                    active = 'ALWAYS'
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    stagingRepository('build/staging-deploy')
+                    applyMavenCentralRules = true
+                    retryDelay = 30
+                    maxRetries = 60
+                }
+            }
         }
     }
 }
@@ -98,6 +123,11 @@ publishing {
                 password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token") ?: ""
             }
         }
+        // Staging directory for JReleaser
+        maven {
+            name = "stagingDeploy"
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
     }
 }
 
@@ -123,12 +153,17 @@ tasks.withType(Sign).configureEach {
 tasks.register('publishAll') {
     dependsOn 'publishPlugins'                                      // Gradle Plugin Portal
     dependsOn 'publishAllPublicationsToGitHubPackagesRepository'    // GitHub Packages
-    dependsOn 'publishToSonatype'                                   // Maven Central
+    dependsOn 'jreleaserDeploy'                                     // Maven Central (via JReleaser)
     dependsOn 'publishToMavenLocal'                                 // Local Maven
 }
 
-// Task to publish only to Maven Central
+// Task to publish only to Maven Central (via JReleaser -> Central Portal)
 tasks.register('publishToMavenCentral') {
-    dependsOn 'publishToSonatype'
-    dependsOn 'closeAndReleaseSonatypeStagingRepository'
+    dependsOn 'publishAllPublicationsToStagingDeployRepository'     // Stage artifacts
+    dependsOn 'jreleaserDeploy'                                     // Deploy to Central Portal
+}
+
+// Ensure staging happens before JReleaser deploy
+tasks.named('jreleaserDeploy') {
+    dependsOn 'publishAllPublicationsToStagingDeployRepository'
 }

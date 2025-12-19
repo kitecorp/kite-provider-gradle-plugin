@@ -258,15 +258,17 @@ Or trigger the GitHub Action by creating a release.
 
 ### To Maven Central
 
-Requires Sonatype credentials and GPG signing key:
+Requires Sonatype Central Portal credentials and GPG signing key. Uses [JReleaser](https://jreleaser.org/) for publishing:
 
 ```bash
-MAVEN_USERNAME=your-username \
-MAVEN_PASSWORD=your-password \
-GPG_PRIVATE_KEY="$(cat private-key.asc)" \
-GPG_PASSPHRASE=your-passphrase \
-./gradlew publishAllPublicationsToMavenCentralRepository
+JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME=your-token-username \
+JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD=your-token-password \
+JRELEASER_GPG_SECRET_KEY="$(cat private-key.asc)" \
+JRELEASER_GPG_PASSPHRASE=your-passphrase \
+./gradlew publishToMavenCentral
 ```
+
+Generate your token credentials at [central.sonatype.com/account](https://central.sonatype.com/account).
 
 Or trigger the GitHub Action by creating a release.
 
@@ -297,11 +299,12 @@ This project uses GitHub Actions for:
 |--------|-------------|--------------|
 | `GRADLE_PUBLISH_KEY` | Gradle Plugin Portal API key | Gradle Plugin Portal |
 | `GRADLE_PUBLISH_SECRET` | Gradle Plugin Portal API secret | Gradle Plugin Portal |
-| `GITHUB_TOKEN` | Auto-provided by GitHub Actions | GitHub Packages |
-| `MAVEN_USERNAME` | Sonatype OSSRH username | Maven Central |
-| `MAVEN_PASSWORD` | Sonatype OSSRH password/token | Maven Central |
-| `GPG_PRIVATE_KEY` | GPG private key (base64 or armored) | Maven Central |
-| `GPG_PASSPHRASE` | GPG key passphrase | Maven Central |
+| `GITHUB_TOKEN` | Auto-provided by GitHub Actions | GitHub Packages, JReleaser |
+| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal token username | Maven Central |
+| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal token password | Maven Central |
+| `GPG_PUBLIC_KEY` | GPG public key (armored ASCII format) | Maven Central (JReleaser) |
+| `GPG_PRIVATE_KEY` | GPG private key (armored ASCII format) | Maven Central, Signing |
+| `GPG_PASSPHRASE` | GPG key passphrase (can be empty) | Maven Central, Signing |
 
 ## Requirements
 
