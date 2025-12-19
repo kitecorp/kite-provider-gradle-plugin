@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml)
 [![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/cloud.kitelang.provider)](https://plugins.gradle.org/plugin/cloud.kitelang.provider)
+[![Maven Central](https://img.shields.io/maven-central/v/cloud.kitelang/kite-provider-gradle-plugin)](https://central.sonatype.com/artifact/cloud.kitelang/kite-provider-gradle-plugin)
 
 Gradle plugin that simplifies building infrastructure providers for [Kite](https://github.com/kitecorp/kite), the multi-cloud Infrastructure as Code tool.
 
@@ -61,7 +62,28 @@ gpr.user=your-github-username
 gpr.token=your-github-token
 ```
 
-### Option 3: Maven Local (Development)
+### Option 3: Maven Central
+
+For users who prefer Maven Central:
+
+```groovy
+// settings.gradle
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+```
+
+```groovy
+// build.gradle
+plugins {
+    id 'cloud.kitelang.provider' version '0.1.0'
+}
+```
+
+### Option 4: Maven Local (Development)
 
 For local development or testing unreleased versions:
 
@@ -234,6 +256,20 @@ GITHUB_TOKEN=your-token ./gradlew publishAllPublicationsToGitHubPackagesReposito
 
 Or trigger the GitHub Action by creating a release.
 
+### To Maven Central
+
+Requires Sonatype credentials and GPG signing key:
+
+```bash
+MAVEN_USERNAME=your-username \
+MAVEN_PASSWORD=your-password \
+GPG_PRIVATE_KEY="$(cat private-key.asc)" \
+GPG_PASSPHRASE=your-passphrase \
+./gradlew publishAllPublicationsToMavenCentralRepository
+```
+
+Or trigger the GitHub Action by creating a release.
+
 ### To Maven Local
 
 ```bash
@@ -253,6 +289,7 @@ This project uses GitHub Actions for:
 - **CI** (`ci.yml`) - Builds and tests on every push/PR to main
 - **Publish to Gradle Plugin Portal** (`publish-gradle-portal.yml`) - Publishes on release
 - **Publish to GitHub Packages** (`publish-github-packages.yml`) - Publishes on release
+- **Publish to Maven Central** (`publish-maven-central.yml`) - Publishes on release
 
 ### Required Secrets
 
@@ -261,6 +298,10 @@ This project uses GitHub Actions for:
 | `GRADLE_PUBLISH_KEY` | Gradle Plugin Portal API key | Gradle Plugin Portal |
 | `GRADLE_PUBLISH_SECRET` | Gradle Plugin Portal API secret | Gradle Plugin Portal |
 | `GITHUB_TOKEN` | Auto-provided by GitHub Actions | GitHub Packages |
+| `MAVEN_USERNAME` | Sonatype OSSRH username | Maven Central |
+| `MAVEN_PASSWORD` | Sonatype OSSRH password/token | Maven Central |
+| `GPG_PRIVATE_KEY` | GPG private key (base64 or armored) | Maven Central |
+| `GPG_PASSPHRASE` | GPG key passphrase | Maven Central |
 
 ## Requirements
 

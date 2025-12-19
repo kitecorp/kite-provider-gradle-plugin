@@ -1,7 +1,7 @@
 plugins {
-    id 'java-gradle-plugin'
-    id 'maven-publish'
+    // Auto-applies: java-gradle-plugin, maven-publish
     id 'com.gradle.plugin-publish' version '2.0.0'
+    id 'signing'
 }
 
 group = 'cloud.kitelang'
@@ -21,6 +21,8 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 gradlePlugin {
@@ -82,12 +84,56 @@ publishing {
                 password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token") ?: ""
             }
         }
+
+        // Maven Central (Sonatype OSSRH)
+        maven {
+            name = "MavenCentral"
+            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            credentials {
+                username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
+                password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
+            }
+        }
+
+        // Maven Central Snapshots
+        maven {
+            name = "MavenCentralSnapshots"
+            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            credentials {
+                username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
+                password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
+            }
+        }
     }
+}
+
+// Sign all publications
+signing {
+    // Use in-memory key for CI (from environment variables)
+    def signingKey = System.getenv("GPG_PRIVATE_KEY")
+    def signingPassword = System.getenv("GPG_PASSPHRASE") ?: ""  // Empty passphrase is OK
+
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+
+    sign publishing.publications.pluginMaven
+}
+
+// Don't fail build if signing credentials are missing (for local dev)
+tasks.withType(Sign).configureEach {
+    onlyIf { System.getenv("GPG_PRIVATE_KEY") != null }
 }
 
 // Task to publish to all repositories
 tasks.register('publishAll') {
-    dependsOn 'publishPlugins'           // Gradle Plugin Portal
-    dependsOn 'publishAllPublicationsToGitHubPackagesRepository'  // GitHub Packages
-    dependsOn 'publishToMavenLocal'      // Local Maven
+    dependsOn 'publishPlugins'                                      // Gradle Plugin Portal
+    dependsOn 'publishAllPublicationsToGitHubPackagesRepository'    // GitHub Packages
+    dependsOn 'publishAllPublicationsToMavenCentralRepository'      // Maven Central
+    dependsOn 'publishToMavenLocal'                                 // Local Maven
+}
+
+// Task to publish only to Maven Central
+tasks.register('publishToMavenCentral') {
+    dependsOn 'publishAllPublicationsToMavenCentralRepository'
 }
