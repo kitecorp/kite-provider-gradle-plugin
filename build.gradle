@@ -1,0 +1,54 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+}
+
+group = 'cloud.kitelang'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    // Shadow plugin API for fat JAR support
+    implementation 'com.gradleup.shadow:shadow-gradle-plugin:9.3.0'
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+gradlePlugin {
+    plugins {
+        kiteProvider {
+            id = 'cloud.kitelang.provider'
+            implementationClass = 'cloud.kitelang.gradle.KiteProviderPlugin'
+            displayName = 'Kite Provider Plugin'
+            description = 'Gradle plugin for building Kite infrastructure providers'
+        }
+    }
+}
+
+publishing {
+    publications {
+        pluginMaven(MavenPublication) {
+            artifactId = 'kite-provider-gradle-plugin'
+
+            pom {
+                name = 'Kite Provider Gradle Plugin'
+                description = 'Gradle plugin for building Kite infrastructure providers'
+                url = 'https://github.com/kitecorp/kite'
+                licenses {
+                    license {
+                        name = 'Apache License 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0'
+                    }
+                }
+            }
+        }
+    }
+}
