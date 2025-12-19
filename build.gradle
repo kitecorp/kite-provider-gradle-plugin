@@ -2,6 +2,7 @@ plugins {
     // Auto-applies: java-gradle-plugin, maven-publish
     id 'com.gradle.plugin-publish' version '2.0.0'
     id 'signing'
+    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
 }
 
 group = 'cloud.kitelang'
@@ -36,6 +37,19 @@ gradlePlugin {
             displayName = 'Kite Provider Plugin'
             description = 'Gradle plugin for building Kite infrastructure providers with auto-configuration, fat JAR creation, and manifest generation'
             tags.set(['kite', 'infrastructure', 'iac', 'provider', 'grpc', 'cloud'])
+        }
+    }
+}
+
+// Configure Nexus publishing for Maven Central (new portal)
+nexusPublishing {
+    repositories {
+        sonatype {
+            // New Sonatype Central Portal
+            nexusUrl = uri("https://central.sonatype.com/")
+            snapshotRepositoryUrl = uri("https://central.sonatype.com/")
+            username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
+            password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
         }
     }
 }
@@ -84,26 +98,6 @@ publishing {
                 password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token") ?: ""
             }
         }
-
-        // Maven Central (Sonatype OSSRH)
-        maven {
-            name = "MavenCentral"
-            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            credentials {
-                username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
-                password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
-            }
-        }
-
-        // Maven Central Snapshots
-        maven {
-            name = "MavenCentralSnapshots"
-            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-            credentials {
-                username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("ossrh.username") ?: ""
-                password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("ossrh.password") ?: ""
-            }
-        }
     }
 }
 
@@ -129,11 +123,12 @@ tasks.withType(Sign).configureEach {
 tasks.register('publishAll') {
     dependsOn 'publishPlugins'                                      // Gradle Plugin Portal
     dependsOn 'publishAllPublicationsToGitHubPackagesRepository'    // GitHub Packages
-    dependsOn 'publishAllPublicationsToMavenCentralRepository'      // Maven Central
+    dependsOn 'publishToSonatype'                                   // Maven Central
     dependsOn 'publishToMavenLocal'                                 // Local Maven
 }
 
 // Task to publish only to Maven Central
 tasks.register('publishToMavenCentral') {
-    dependsOn 'publishAllPublicationsToMavenCentralRepository'
+    dependsOn 'publishToSonatype'
+    dependsOn 'closeAndReleaseSonatypeStagingRepository'
 }
