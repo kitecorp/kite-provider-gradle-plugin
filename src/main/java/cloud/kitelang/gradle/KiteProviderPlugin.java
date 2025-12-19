@@ -63,6 +63,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
     private void configure(Project project, KiteProviderExtension extension) {
         var name = extension.getName().getOrElse(project.getName());
+        var version = project.getVersion().toString();
         var protocolVersion = extension.getProtocolVersion().get();
         var sdkVersion = extension.getSdkVersion().get();
 
@@ -78,6 +79,43 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Add SDK dependency
         project.getDependencies().add("implementation", "cloud.kitelang:kite-provider-sdk:" + sdkVersion);
         project.getDependencies().add("annotationProcessor", "cloud.kitelang:kite-provider-sdk:" + sdkVersion);
+
+        // Generate provider.json as a resource (same format as distribution manifest)
+        var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
+        var mainSourceSet = sourceSets.getByName("main");
+        var generatedResourcesDir = project.getLayout().getBuildDirectory().dir("generated/resources/kite");
+
+        // Register task to generate provider.json resource
+        var generateProviderInfo = project.getTasks().register("generateProviderInfo", task -> {
+            task.getOutputs().dir(generatedResourcesDir);
+
+            task.doLast(t -> {
+                var outputDir = generatedResourcesDir.get().getAsFile();
+                var metaInfDir = new File(outputDir, "META-INF/kite");
+                metaInfDir.mkdirs();
+
+                var providerJson = new File(metaInfDir, "provider.json");
+                var content = String.format("""
+                    {
+                        "name": "%s",
+                        "version": "%s",
+                        "protocolVersion": %d
+                    }
+                    """, name, version, protocolVersion);
+
+                try {
+                    Files.writeString(providerJson.toPath(), content);
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to write provider.json", e);
+                }
+            });
+        });
+
+        // Add generated resources to source set and wire up task dependency
+        mainSourceSet.getResources().srcDir(generatedResourcesDir);
+        project.getTasks().named("processResources").configure(task -> {
+            task.dependsOn(generateProviderInfo);
+        });
 
         // Configure shadow JAR
         project.getTasks().withType(ShadowJar.class).configureEach(shadowJar -> {

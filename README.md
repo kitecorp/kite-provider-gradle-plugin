@@ -5,9 +5,10 @@ Gradle plugin that simplifies building infrastructure providers for [Kite](https
 ## Features
 
 - Automatically configures Java, Application, and Shadow plugins
-- Generates `provider.json` manifest for provider discovery
+- Generates `provider.json` manifest for provider discovery (both in distribution and as JAR resource)
 - Creates distribution packages with launcher scripts
 - Injects Kite Provider SDK dependency
+- Auto-detects mainClass by scanning for `extends ProviderServer` or `extends KiteProvider`
 - Configures shadow JAR with proper manifest
 
 ## Installation
