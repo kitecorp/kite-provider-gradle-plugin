@@ -43,7 +43,7 @@ plugins {
 
 kiteProvider {
     name = 'aws'
-    mainClass = 'cloud.kitelang.provider.aws.AwsProvider'
+    // mainClass auto-detected from class extending ProviderServer/KiteProvider
 }
 
 dependencies {
@@ -57,9 +57,11 @@ dependencies {
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `name` | String | project name | Provider name used in `provider.json` |
-| `mainClass` | String | **required** | Fully qualified main class extending `ProviderServer` |
+| `mainClass` | String | auto-detected | Fully qualified main class extending `ProviderServer` or `KiteProvider` |
 | `protocolVersion` | Integer | `1` | Provider protocol version |
 | `sdkVersion` | String | `0.1.0` | Kite Provider SDK version |
+
+**Note:** The `mainClass` is automatically detected by scanning source files for a class that extends `ProviderServer` or `KiteProvider`. You only need to specify it manually if auto-detection fails or you have multiple provider classes.
 
 ### Tasks
 
@@ -103,7 +105,7 @@ repositories {
 
 kiteProvider {
     name = 'my-cloud'
-    mainClass = 'com.example.MyCloudProvider'
+    // mainClass auto-detected from class extending ProviderServer/KiteProvider
 }
 
 dependencies {
