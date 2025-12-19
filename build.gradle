@@ -42,22 +42,8 @@ gradlePlugin {
 }
 
 // JReleaser configuration for Maven Central via new Central Portal
+// Note: No release block needed - we only use jreleaserDeploy for Maven Central
 jreleaser {
-    project {
-        name = 'kite-provider-gradle-plugin'
-        version = project.version
-        description = 'Gradle plugin for building Kite infrastructure providers'
-        authors = ['Kite Team']
-        license = 'Apache-2.0'
-        links {
-            homepage = 'https://github.com/kitecorp/kite-provider-gradle-plugin'
-        }
-    }
-    release {
-        github {
-            skipRelease = true  // We only want Maven Central deployment
-        }
-    }
     signing {
         active = 'ALWAYS'
         armored = true
