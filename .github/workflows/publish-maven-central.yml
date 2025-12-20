@@ -40,12 +40,23 @@ jobs:
         run: |
           echo "${{ secrets.GPG_PUBLIC_KEY_BASE64 }}" | base64 -d > /tmp/gpg-public.asc
           echo "${{ secrets.GPG_PRIVATE_KEY_BASE64 }}" | base64 -d > /tmp/gpg-private.asc
+          echo "=== GPG Public Key (first 5 and last 5 lines) ==="
+          head -5 /tmp/gpg-public.asc
+          echo "..."
+          tail -5 /tmp/gpg-public.asc
+          echo "=== Key length: $(wc -c < /tmp/gpg-public.asc) bytes ==="
           echo "JRELEASER_GPG_PUBLIC_KEY<<EOF" >> $GITHUB_ENV
           cat /tmp/gpg-public.asc >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
           echo "JRELEASER_GPG_SECRET_KEY<<EOF" >> $GITHUB_ENV
           cat /tmp/gpg-private.asc >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
+
+      - name: Verify GPG env vars
+        run: |
+          echo "=== Public key starts with ==="
+          echo "$JRELEASER_GPG_PUBLIC_KEY" | head -3
+          echo "=== Public key length: ${#JRELEASER_GPG_PUBLIC_KEY} chars ==="
 
       - name: Deploy to Maven Central (via JReleaser Gradle plugin)
         run: ./gradlew jreleaserDeploy
