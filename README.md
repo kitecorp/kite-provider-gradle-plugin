@@ -29,7 +29,28 @@ plugins {
 }
 ```
 
-### Option 2: GitHub Packages
+### Option 2: Maven Central
+
+For users who prefer Maven Central:
+
+```groovy
+// settings.gradle
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+```
+
+```groovy
+// build.gradle
+plugins {
+    id 'cloud.kitelang.provider' version '0.1.0'
+}
+```
+
+### Option 3: GitHub Packages
 
 For organizations using GitHub Packages:
 
@@ -60,27 +81,6 @@ plugins {
 ```properties
 gpr.user=your-github-username
 gpr.token=your-github-token
-```
-
-### Option 3: Maven Central
-
-For users who prefer Maven Central:
-
-```groovy
-// settings.gradle
-pluginManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-```
-
-```groovy
-// build.gradle
-plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
-}
 ```
 
 ### Option 4: Maven Local (Development)
