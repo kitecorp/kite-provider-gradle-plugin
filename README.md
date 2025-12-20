@@ -300,11 +300,37 @@ This project uses GitHub Actions for:
 | `GRADLE_PUBLISH_KEY` | Gradle Plugin Portal API key | Gradle Plugin Portal |
 | `GRADLE_PUBLISH_SECRET` | Gradle Plugin Portal API secret | Gradle Plugin Portal |
 | `GITHUB_TOKEN` | Auto-provided by GitHub Actions | GitHub Packages, JReleaser |
-| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal token username | Maven Central |
-| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal token password | Maven Central |
+| `MAVEN_USERNAME` | Sonatype Central Portal token username | Maven Central |
+| `MAVEN_PASSWORD` | Sonatype Central Portal token password | Maven Central |
 | `GPG_PUBLIC_KEY` | GPG public key (armored ASCII format) | Maven Central (JReleaser) |
 | `GPG_PRIVATE_KEY` | GPG private key (armored ASCII format) | Maven Central, Signing |
 | `GPG_PASSPHRASE` | GPG key passphrase (can be empty) | Maven Central, Signing |
+
+### Obtaining GPG Keys
+
+Generate a GPG key pair if you don't have one:
+
+```bash
+gpg --full-generate-key
+```
+
+Export the public key (for `GPG_PUBLIC_KEY` secret):
+
+```bash
+gpg --armor --export YOUR_KEY_ID
+```
+
+Export the private key (for `GPG_PRIVATE_KEY` secret):
+
+```bash
+gpg --armor --export-secret-keys YOUR_KEY_ID
+```
+
+To find your key ID:
+
+```bash
+gpg --list-keys --keyid-format SHORT
+```
 
 ## Requirements
 
