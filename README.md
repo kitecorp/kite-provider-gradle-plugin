@@ -123,7 +123,6 @@ version = '1.0.0'
 
 kiteProvider {
     name = 'my-provider'
-    // mainClass auto-detected from class extending ProviderServer/KiteProvider
 }
 
 dependencies {
@@ -186,7 +185,6 @@ repositories {
 
 kiteProvider {
     name = 'my-cloud'
-    // mainClass auto-detected from class extending ProviderServer/KiteProvider
 }
 
 dependencies {
