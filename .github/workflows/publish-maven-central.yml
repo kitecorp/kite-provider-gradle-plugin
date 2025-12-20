@@ -36,20 +36,25 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Deploy to Maven Central (via JReleaser Gradle plugin)
+      - name: Decode GPG keys
         run: |
-          # Decode base64-encoded GPG keys
-          export JRELEASER_GPG_PUBLIC_KEY=$(echo "$GPG_PUBLIC_KEY_BASE64" | base64 -d)
-          export JRELEASER_GPG_SECRET_KEY=$(echo "$GPG_PRIVATE_KEY_BASE64" | base64 -d)
-          ./gradlew jreleaserDeploy
+          echo "${{ secrets.GPG_PUBLIC_KEY_BASE64 }}" | base64 -d > /tmp/gpg-public.asc
+          echo "${{ secrets.GPG_PRIVATE_KEY_BASE64 }}" | base64 -d > /tmp/gpg-private.asc
+          echo "JRELEASER_GPG_PUBLIC_KEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/gpg-public.asc >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          echo "JRELEASER_GPG_SECRET_KEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/gpg-private.asc >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Deploy to Maven Central (via JReleaser Gradle plugin)
+        run: ./gradlew jreleaserDeploy
         env:
           JRELEASER_PROJECT_VERSION: ${{ github.event.release.tag_name || github.ref_name }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          GPG_PUBLIC_KEY_BASE64: ${{ secrets.GPG_PUBLIC_KEY_BASE64 }}
-          GPG_PRIVATE_KEY_BASE64: ${{ secrets.GPG_PRIVATE_KEY_BASE64 }}
 
       - name: JReleaser output
         if: always()
