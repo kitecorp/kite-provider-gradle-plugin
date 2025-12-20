@@ -47,7 +47,7 @@ jreleaser {
     signing {
         active = 'ALWAYS'
         armored = true
-        mode = 'FILE'  // Sign individual files
+        mode = 'MEMORY'  // Use keys from environment variables
     }
     deploy {
         maven {
