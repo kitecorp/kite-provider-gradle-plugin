@@ -140,6 +140,51 @@ dependencies {
 | `protocolVersion` | Integer | `1` | Provider protocol version |
 | `sdkVersion` | String | `0.1.0` | Kite Provider SDK version |
 
+#### Examples
+
+Custom provider name:
+
+```groovy
+kiteProvider {
+    name = 'aws-provider'
+}
+```
+
+Explicit main class (when auto-detection fails or multiple providers exist):
+
+```groovy
+kiteProvider {
+    mainClass = 'com.example.provider.MyCloudProvider'
+}
+```
+
+Custom protocol version:
+
+```groovy
+kiteProvider {
+    protocolVersion = 2
+}
+```
+
+Specific SDK version:
+
+```groovy
+kiteProvider {
+    sdkVersion = '0.2.0'
+}
+```
+
+Full configuration:
+
+```groovy
+kiteProvider {
+    name = 'my-cloud'
+    mainClass = 'com.example.provider.MyCloudProvider'
+    protocolVersion = 1
+    sdkVersion = '0.1.0'
+}
+```
+
 **Note:** The `mainClass` is automatically detected by scanning source files for a class that extends `ProviderServer` or `KiteProvider`. You only need to specify it manually if auto-detection fails or you have multiple provider classes.
 
 ### Tasks
