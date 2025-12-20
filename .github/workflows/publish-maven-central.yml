@@ -1,3 +1,18 @@
+# Publish to Maven Central via Sonatype Central Portal
+#
+# Required secrets:
+#   MAVEN_USERNAME    - Sonatype Central Portal token username (from central.sonatype.com/account)
+#   MAVEN_PASSWORD    - Sonatype Central Portal token password
+#   GPG_PUBLIC_KEY    - Armored ASCII public key: gpg --armor --export YOUR_KEY_ID
+#   GPG_PRIVATE_KEY   - Armored ASCII private key: gpg --armor --export-secret-keys YOUR_KEY_ID
+#   GPG_PASSPHRASE    - GPG key passphrase (can be empty string if no passphrase)
+#
+# To generate a GPG key pair:
+#   gpg --full-generate-key
+#
+# To find your key ID:
+#   gpg --list-keys --keyid-format SHORT
+
 name: Publish to Maven Central
 
 on:
