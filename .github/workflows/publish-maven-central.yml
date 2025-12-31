@@ -19,10 +19,18 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      runner_type:
+        description: 'Runner type'
+        type: choice
+        default: 'github'
+        options:
+          - github
+          - self-hosted
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner_type == 'self-hosted' && 'self-hosted' || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout
