@@ -140,7 +140,7 @@ dependencies {
 | `protocolVersion` | Integer | `1` | Provider protocol version |
 | `sdkVersion` | String | `0.2.0` | Kite Provider SDK version |
 | `docsEnabled` | Boolean | `true` | Generate documentation during build |
-| `docsFormats` | String | `html,markdown,kite` | Comma-separated output formats |
+| `docsFormats` | String | `html,markdown,schemas` | Comma-separated output formats |
 | `docsOutputDir` | String | `docs` | Output directory (relative to project root) |
 
 #### Examples
@@ -235,7 +235,7 @@ your-provider/
 │   │   ├── networking.md         # Per-domain markdown files
 │   │   ├── compute.md
 │   │   └── storage.md
-│   └── kite/
+│   └── schemas/
 │       ├── networking/           # Kite schema files by domain
 │       │   ├── Vpc.kite
 │       │   └── Subnet.kite
@@ -253,7 +253,7 @@ your-provider/
 | `html` | Interactive HTML with search, syntax highlighting, and navigation | Website/GitHub Pages |
 | `markdown` | Markdown files per domain | GitHub README, wikis |
 | `combined-markdown` | Single `REFERENCE.md` file | Quick reference |
-| `kite` | Kite schema files (`.kite`) | IDE support, validation |
+| `schemas` | Kite schema files (`.kite`) | IDE support, validation |
 
 #### Configuration Examples
 

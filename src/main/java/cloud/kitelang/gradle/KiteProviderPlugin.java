@@ -57,7 +57,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
         extension.getProtocolVersion().convention(1);
         extension.getSdkVersion().convention("0.2.0");
         extension.getDocsEnabled().convention(true);
-        extension.getDocsFormats().convention("html,markdown,kite");
+        extension.getDocsFormats().convention("html,markdown,schemas");
         extension.getDocsOutputDir().convention("docs");
 
         // Configure after evaluation (when extension values are set)
