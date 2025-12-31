@@ -138,7 +138,10 @@ dependencies {
 | `name` | String | project name | Provider name used in `provider.json` |
 | `mainClass` | String | auto-detected | Fully qualified main class extending `ProviderServer` or `KiteProvider` |
 | `protocolVersion` | Integer | `1` | Provider protocol version |
-| `sdkVersion` | String | `0.1.0` | Kite Provider SDK version |
+| `sdkVersion` | String | `0.2.0` | Kite Provider SDK version |
+| `docsEnabled` | Boolean | `true` | Generate documentation during build |
+| `docsFormats` | String | `html,markdown,kite` | Comma-separated output formats |
+| `docsOutputDir` | String | `docs` | Output directory (relative to project root) |
 
 #### Examples
 
@@ -198,6 +201,7 @@ The plugin registers the following tasks:
 | `generateProviderInfo` | Generates `provider.json` as JAR resource |
 | `installMinDist` | Creates minimized distribution using shadow JAR |
 | `shadowJar` | Creates fat JAR with all dependencies |
+| `generateProviderDocs` | Generates HTML, Markdown, and Kite schema documentation (runs after `build`) |
 
 ### Build Output
 
@@ -211,6 +215,87 @@ build/install/<provider-name>/
 │   └── *.jar            # Dependencies
 └── provider.json        # Provider manifest
 ```
+
+### Documentation Generation
+
+The plugin automatically generates documentation for your provider resources during build. Documentation is output to `docs/` by default, making it easy to commit to git and view on GitHub.
+
+#### Output Structure
+
+```
+your-provider/
+├── src/main/java/...
+├── docs/                          # Generated documentation (git-tracked)
+│   ├── html/
+│   │   ├── index.html            # Main entry point with navigation
+│   │   ├── networking.html       # Per-domain pages
+│   │   ├── compute.html
+│   │   └── storage.html
+│   ├── markdown/
+│   │   ├── networking.md         # Per-domain markdown files
+│   │   ├── compute.md
+│   │   └── storage.md
+│   └── kite/
+│       ├── networking/           # Kite schema files by domain
+│       │   ├── Vpc.kite
+│       │   └── Subnet.kite
+│       ├── compute/
+│       │   └── Ec2Instance.kite
+│       └── storage/
+│           └── S3Bucket.kite
+└── build.gradle
+```
+
+#### Output Formats
+
+| Format | Description | Use Case |
+|--------|-------------|----------|
+| `html` | Interactive HTML with search, syntax highlighting, and navigation | Website/GitHub Pages |
+| `markdown` | Markdown files per domain | GitHub README, wikis |
+| `combined-markdown` | Single `REFERENCE.md` file | Quick reference |
+| `kite` | Kite schema files (`.kite`) | IDE support, validation |
+
+#### Configuration Examples
+
+Disable documentation generation:
+
+```groovy
+kiteProvider {
+    docsEnabled = false
+}
+```
+
+Generate only HTML and combined markdown:
+
+```groovy
+kiteProvider {
+    docsFormats = 'html,combined-markdown'
+}
+```
+
+Custom output directory:
+
+```groovy
+kiteProvider {
+    docsOutputDir = 'build/docs'  // Use build directory (not git-tracked)
+}
+```
+
+#### Manual Generation
+
+Run documentation generation manually:
+
+```bash
+./gradlew generateProviderDocs
+```
+
+#### HTML Documentation Features
+
+- **Search**: Filter resources by name
+- **Syntax Highlighting**: Kite code examples with copy button
+- **Navigation**: Sidebar with domain grouping
+- **Property Tables**: Shows type, description, default values, and valid values
+- **Cloud Properties**: Clearly marked read-only properties managed by the cloud provider
 
 ## Example Provider
 
