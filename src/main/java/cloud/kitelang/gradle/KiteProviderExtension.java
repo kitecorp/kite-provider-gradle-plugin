@@ -51,8 +51,8 @@ public abstract class KiteProviderExtension {
 
     /**
      * Documentation output formats.
-     * Comma-separated list: html, markdown, combined-markdown
-     * Defaults to "html,markdown".
+     * Comma-separated list: html, markdown, combined-markdown, kite
+     * Defaults to "html,markdown,kite".
      */
     public abstract Property<String> getDocsFormats();
 
