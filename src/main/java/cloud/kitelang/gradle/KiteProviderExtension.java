@@ -10,6 +10,10 @@ import org.gradle.api.provider.Property;
  * kiteProvider {
  *     name = 'aws'
  *     mainClass = 'cloud.kitelang.provider.aws.AwsProvider'
+ *     docs {
+ *         enabled = true
+ *         formats = 'html,markdown'
+ *     }
  * }
  * </pre>
  */
@@ -38,4 +42,23 @@ public abstract class KiteProviderExtension {
      * Defaults to "0.1.0".
      */
     public abstract Property<String> getSdkVersion();
+
+    /**
+     * Whether to generate documentation during build.
+     * Defaults to true.
+     */
+    public abstract Property<Boolean> getDocsEnabled();
+
+    /**
+     * Documentation output formats.
+     * Comma-separated list: html, markdown, combined-markdown
+     * Defaults to "html,markdown".
+     */
+    public abstract Property<String> getDocsFormats();
+
+    /**
+     * Documentation output directory.
+     * Defaults to "build/docs/provider".
+     */
+    public abstract Property<String> getDocsOutputDir();
 }

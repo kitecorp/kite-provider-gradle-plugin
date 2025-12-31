@@ -56,6 +56,9 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Set defaults
         extension.getProtocolVersion().convention(1);
         extension.getSdkVersion().convention("0.1.0");
+        extension.getDocsEnabled().convention(true);
+        extension.getDocsFormats().convention("html,markdown");
+        extension.getDocsOutputDir().convention("build/docs/provider");
 
         // Configure after evaluation (when extension values are set)
         project.afterEvaluate(p -> configure(p, extension));
@@ -218,6 +221,40 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 }
             });
         });
+
+        // Register documentation generation task
+        if (extension.getDocsEnabled().get()) {
+            project.getTasks().register("generateProviderDocs", org.gradle.api.tasks.JavaExec.class, task -> {
+                task.setGroup("documentation");
+                task.setDescription("Generates HTML and Markdown documentation for provider resources");
+
+                // Depend on classes compilation
+                task.dependsOn("classes");
+
+                // Use the runtime classpath
+                task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
+                task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
+
+                // Pass arguments
+                var outputDir = extension.getDocsOutputDir().get();
+                var formats = extension.getDocsFormats().get();
+
+                task.args(
+                    "--provider", mainClassProvider.get(),
+                    "--output", project.file(outputDir).getAbsolutePath(),
+                    "--format", formats
+                );
+
+                task.doFirst(t -> {
+                    project.getLogger().lifecycle("Generating provider documentation...");
+                });
+            });
+
+            // Wire up to build lifecycle - generate docs after build
+            project.getTasks().named("build").configure(task -> {
+                task.finalizedBy("generateProviderDocs");
+            });
+        }
     }
 
     /**
