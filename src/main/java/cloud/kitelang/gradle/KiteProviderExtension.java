@@ -58,7 +58,7 @@ public abstract class KiteProviderExtension {
 
     /**
      * Documentation output directory.
-     * Defaults to "build/docs/provider".
+     * Defaults to "docs" (in project root, suitable for git tracking).
      */
     public abstract Property<String> getDocsOutputDir();
 }
