@@ -22,8 +22,29 @@ This ensures that:
 3. Verify the build succeeds
 4. Then commit the changes
 
+## Version Upgrade Workflow
+
+When the plugin version in `build.gradle` is upgraded, also update the version references in consumer projects:
+
+1. Update `kite-providers/files/build.gradle`:
+   ```groovy
+   plugins {
+       id 'cloud.kitelang.provider' version 'NEW_VERSION'
+   }
+   ```
+
+2. Update `kite-providers/grpc-example/build.gradle`:
+   ```groovy
+   plugins {
+       id 'cloud.kitelang.provider' version 'NEW_VERSION'
+   }
+   ```
+
+3. Commit changes to both the plugin and kite-providers submodule
+
 ## Notes
 
 - The plugin version in `build.gradle` determines what version is published
 - Published to `~/.m2/repository/cloud/kitelang/kite-provider-gradle-plugin/`
 - Consumer projects need `mavenLocal()` in their `pluginManagement.repositories`
+- Keep plugin versions in sync across: kite-provider-gradle-plugin, kite-providers/files, kite-providers/grpc-example
