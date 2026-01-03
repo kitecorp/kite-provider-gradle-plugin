@@ -235,18 +235,24 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
                 task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
 
-                // Pass arguments
-                var outputDir = extension.getDocsOutputDir().get();
+                // Pass arguments - output to versioned directory
+                var baseOutputDir = extension.getDocsOutputDir().get();
+                var versionedOutputDir = baseOutputDir + "/" + version;
                 var formats = extension.getDocsFormats().get();
 
                 task.args(
                     "--provider", mainClassProvider.get(),
-                    "--output", project.file(outputDir).getAbsolutePath(),
+                    "--output", project.file(versionedOutputDir).getAbsolutePath(),
                     "--format", formats
                 );
 
                 task.doFirst(t -> {
-                    project.getLogger().lifecycle("Generating provider documentation...");
+                    project.getLogger().lifecycle("Generating provider documentation for version " + version + "...");
+                });
+
+                // After docs generated, update versions.json at root docs folder
+                task.doLast(t -> {
+                    updateVersionsJson(project, baseOutputDir, name, version);
                 });
             });
 
@@ -254,6 +260,74 @@ public class KiteProviderPlugin implements Plugin<Project> {
             project.getTasks().named("build").configure(task -> {
                 task.finalizedBy("generateProviderDocs");
             });
+        }
+    }
+
+    /**
+     * Updates or creates versions.json at the root docs folder.
+     * Maintains a list of all generated documentation versions.
+     */
+    private void updateVersionsJson(Project project, String baseOutputDir, String providerName, String version) {
+        var docsDir = project.file(baseOutputDir);
+        var versionsFile = new File(docsDir, "versions.json");
+        var today = java.time.LocalDate.now().toString();
+
+        try {
+            // Simple JSON handling without external dependencies
+            StringBuilder versions = new StringBuilder();
+            boolean versionExists = false;
+
+            if (versionsFile.exists()) {
+                var content = Files.readString(versionsFile.toPath());
+                // Check if this version already exists
+                if (content.contains("\"" + version + "\"")) {
+                    versionExists = true;
+                    // Update the date for existing version
+                    content = content.replaceAll(
+                        "(\"version\":\\s*\"" + version + "\"[^}]*\"date\":\\s*\")[^\"]*\"",
+                        "$1" + today + "\""
+                    );
+                    Files.writeString(versionsFile.toPath(), content);
+                    project.getLogger().lifecycle("Updated version " + version + " in versions.json");
+                    return;
+                }
+
+                // Extract existing versions array content
+                int arrayStart = content.indexOf('[');
+                int arrayEnd = content.lastIndexOf(']');
+                if (arrayStart >= 0 && arrayEnd > arrayStart) {
+                    versions.append(content.substring(arrayStart + 1, arrayEnd).trim());
+                    if (!versions.isEmpty() && !versions.toString().isBlank()) {
+                        versions.append(",\n        ");
+                    }
+                }
+            }
+
+            // Add new version entry
+            versions.append(String.format("""
+                {
+                            "version": "%s",
+                            "path": "%s",
+                            "date": "%s"
+                        }""", version, version, today));
+
+            // Write complete JSON
+            var json = String.format("""
+                {
+                    "provider": "%s",
+                    "latest": "%s",
+                    "versions": [
+                        %s
+                    ]
+                }
+                """, providerName, version, versions.toString());
+
+            docsDir.mkdirs();
+            Files.writeString(versionsFile.toPath(), json);
+            project.getLogger().lifecycle("Added version " + version + " to versions.json");
+
+        } catch (IOException e) {
+            project.getLogger().warn("Failed to update versions.json: " + e.getMessage());
         }
     }
 
