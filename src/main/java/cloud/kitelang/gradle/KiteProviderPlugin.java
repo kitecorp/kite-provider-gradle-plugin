@@ -250,9 +250,10 @@ public class KiteProviderPlugin implements Plugin<Project> {
                     project.getLogger().lifecycle("Generating provider documentation for version " + version + "...");
                 });
 
-                // After docs generated, update versions.json at root docs folder
+                // After docs generated, update versions.json and generate changelog
                 task.doLast(t -> {
                     updateVersionsJson(project, baseOutputDir, name, version);
+                    generateChangelog(project, baseOutputDir, version);
                 });
             });
 
@@ -329,6 +330,183 @@ public class KiteProviderPlugin implements Plugin<Project> {
         } catch (IOException e) {
             project.getLogger().warn("Failed to update versions.json: " + e.getMessage());
         }
+    }
+
+    /**
+     * Generates a changelog by comparing current version manifest with previous version.
+     */
+    private void generateChangelog(Project project, String baseOutputDir, String currentVersion) {
+        var docsDir = project.file(baseOutputDir);
+        var versionsFile = new File(docsDir, "versions.json");
+
+        if (!versionsFile.exists()) return;
+
+        try {
+            var versionsContent = Files.readString(versionsFile.toPath());
+
+            // Find previous version (simple parsing)
+            var versions = new java.util.ArrayList<String>();
+            var matcher = java.util.regex.Pattern.compile("\"version\":\\s*\"([^\"]+)\"").matcher(versionsContent);
+            while (matcher.find()) {
+                versions.add(matcher.group(1));
+            }
+
+            // Sort versions and find previous
+            versions.sort((a, b) -> b.compareTo(a)); // descending
+            String previousVersion = null;
+            for (int i = 0; i < versions.size(); i++) {
+                if (versions.get(i).equals(currentVersion) && i + 1 < versions.size()) {
+                    previousVersion = versions.get(i + 1);
+                    break;
+                }
+            }
+
+            if (previousVersion == null) {
+                project.getLogger().lifecycle("No previous version found for changelog");
+                return;
+            }
+
+            // Read manifests
+            var currentManifest = new File(docsDir, currentVersion + "/html/manifest.json");
+            var previousManifest = new File(docsDir, previousVersion + "/html/manifest.json");
+
+            if (!currentManifest.exists() || !previousManifest.exists()) {
+                project.getLogger().lifecycle("Manifest files not found for changelog generation");
+                return;
+            }
+
+            var currentContent = Files.readString(currentManifest.toPath());
+            var previousContent = Files.readString(previousManifest.toPath());
+
+            // Generate changelog
+            var changelog = compareManifests(previousContent, currentContent, previousVersion, currentVersion);
+            var changelogFile = new File(docsDir, currentVersion + "/html/changelog.json");
+            Files.writeString(changelogFile.toPath(), changelog);
+
+            project.getLogger().lifecycle("Generated changelog comparing " + previousVersion + " to " + currentVersion);
+
+        } catch (IOException e) {
+            project.getLogger().warn("Failed to generate changelog: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Compares two manifest JSON strings and returns a changelog JSON.
+     */
+    private String compareManifests(String oldManifest, String newManifest, String oldVersion, String newVersion) {
+        var sb = new StringBuilder();
+        sb.append("{\n");
+        sb.append("  \"fromVersion\": \"").append(oldVersion).append("\",\n");
+        sb.append("  \"toVersion\": \"").append(newVersion).append("\",\n");
+        sb.append("  \"generatedAt\": \"").append(java.time.LocalDate.now()).append("\",\n");
+
+        // Extract resources from both manifests (simple regex parsing)
+        var oldResources = extractResources(oldManifest);
+        var newResources = extractResources(newManifest);
+
+        // Find added resources
+        var addedResources = new java.util.ArrayList<String>();
+        for (String res : newResources.keySet()) {
+            if (!oldResources.containsKey(res)) {
+                addedResources.add(res);
+            }
+        }
+
+        // Find removed resources
+        var removedResources = new java.util.ArrayList<String>();
+        for (String res : oldResources.keySet()) {
+            if (!newResources.containsKey(res)) {
+                removedResources.add(res);
+            }
+        }
+
+        // Find changed resources (property changes)
+        var changedResources = new java.util.LinkedHashMap<String, java.util.Map<String, Object>>();
+        for (String res : newResources.keySet()) {
+            if (oldResources.containsKey(res)) {
+                var oldProps = oldResources.get(res);
+                var newProps = newResources.get(res);
+
+                var addedProps = new java.util.ArrayList<String>();
+                var removedProps = new java.util.ArrayList<String>();
+
+                for (String prop : newProps) {
+                    if (!oldProps.contains(prop)) addedProps.add(prop);
+                }
+                for (String prop : oldProps) {
+                    if (!newProps.contains(prop)) removedProps.add(prop);
+                }
+
+                if (!addedProps.isEmpty() || !removedProps.isEmpty()) {
+                    var changes = new java.util.LinkedHashMap<String, Object>();
+                    if (!addedProps.isEmpty()) changes.put("addedProperties", addedProps);
+                    if (!removedProps.isEmpty()) changes.put("removedProperties", removedProps);
+                    changedResources.put(res, changes);
+                }
+            }
+        }
+
+        // Build JSON output
+        sb.append("  \"addedResources\": [");
+        sb.append(addedResources.stream().map(r -> "\"" + r + "\"").reduce((a, b) -> a + ", " + b).orElse(""));
+        sb.append("],\n");
+
+        sb.append("  \"removedResources\": [");
+        sb.append(removedResources.stream().map(r -> "\"" + r + "\"").reduce((a, b) -> a + ", " + b).orElse(""));
+        sb.append("],\n");
+
+        sb.append("  \"changedResources\": {\n");
+        var entries = new java.util.ArrayList<>(changedResources.entrySet());
+        for (int i = 0; i < entries.size(); i++) {
+            var entry = entries.get(i);
+            sb.append("    \"").append(entry.getKey()).append("\": {\n");
+            var changes = entry.getValue();
+            var changeEntries = new java.util.ArrayList<>(changes.entrySet());
+            for (int j = 0; j < changeEntries.size(); j++) {
+                var ce = changeEntries.get(j);
+                sb.append("      \"").append(ce.getKey()).append("\": [");
+                @SuppressWarnings("unchecked")
+                var props = (java.util.List<String>) ce.getValue();
+                sb.append(props.stream().map(p -> "\"" + p + "\"").reduce((a, b) -> a + ", " + b).orElse(""));
+                sb.append("]");
+                if (j < changeEntries.size() - 1) sb.append(",");
+                sb.append("\n");
+            }
+            sb.append("    }");
+            if (i < entries.size() - 1) sb.append(",");
+            sb.append("\n");
+        }
+        sb.append("  }\n");
+        sb.append("}\n");
+
+        return sb.toString();
+    }
+
+    /**
+     * Extracts resource names and their properties from a manifest JSON string.
+     */
+    private java.util.Map<String, java.util.Set<String>> extractResources(String manifest) {
+        var resources = new java.util.LinkedHashMap<String, java.util.Set<String>>();
+
+        // Find resource blocks: "ResourceName": { ... "properties": { ... } }
+        var resourcePattern = java.util.regex.Pattern.compile("\"(\\w+)\":\\s*\\{[^}]*\"properties\":\\s*\\{([^}]*)\\}");
+        var resourceMatcher = resourcePattern.matcher(manifest);
+
+        while (resourceMatcher.find()) {
+            var resourceName = resourceMatcher.group(1);
+            var propsBlock = resourceMatcher.group(2);
+
+            var props = new java.util.HashSet<String>();
+            var propPattern = java.util.regex.Pattern.compile("\"(\\w+)\":\\s*\\{");
+            var propMatcher = propPattern.matcher(propsBlock);
+            while (propMatcher.find()) {
+                props.add(propMatcher.group(1));
+            }
+
+            resources.put(resourceName, props);
+        }
+
+        return resources;
     }
 
     /**
