@@ -235,14 +235,16 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
                 task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
 
-                // Pass arguments - output to versioned directory
+                // Pass arguments - versioned mode with base output directory
+                // CLI will generate non-versioned index.html at docs root
+                // and resource pages at docs/{version}/
                 var baseOutputDir = extension.getDocsOutputDir().get();
-                var versionedOutputDir = baseOutputDir + "/" + version;
                 var formats = extension.getDocsFormats().get();
 
                 task.args(
                     "--provider", mainClassProvider.get(),
-                    "--output", project.file(versionedOutputDir).getAbsolutePath(),
+                    "--output", project.file(baseOutputDir).getAbsolutePath(),
+                    "--version", version,
                     "--format", formats
                 );
 
@@ -366,9 +368,9 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 return;
             }
 
-            // Read manifests
-            var currentManifest = new File(docsDir, currentVersion + "/html/manifest.json");
-            var previousManifest = new File(docsDir, previousVersion + "/html/manifest.json");
+            // Read manifests (versioned structure: {version}/manifest.json)
+            var currentManifest = new File(docsDir, currentVersion + "/manifest.json");
+            var previousManifest = new File(docsDir, previousVersion + "/manifest.json");
 
             if (!currentManifest.exists() || !previousManifest.exists()) {
                 project.getLogger().lifecycle("Manifest files not found for changelog generation");
@@ -380,7 +382,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
             // Generate changelog
             var changelog = compareManifests(previousContent, currentContent, previousVersion, currentVersion);
-            var changelogFile = new File(docsDir, currentVersion + "/html/changelog.json");
+            var changelogFile = new File(docsDir, currentVersion + "/changelog.json");
             Files.writeString(changelogFile.toPath(), changelog);
 
             project.getLogger().lifecycle("Generated changelog comparing " + previousVersion + " to " + currentVersion);
