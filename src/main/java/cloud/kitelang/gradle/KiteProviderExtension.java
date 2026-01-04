@@ -61,4 +61,10 @@ public abstract class KiteProviderExtension {
      * Defaults to "docs" (in project root, suitable for git tracking).
      */
     public abstract Property<String> getDocsOutputDir();
+
+    /**
+     * URL to the provider's logo image.
+     * Used in documentation header. Optional.
+     */
+    public abstract Property<String> getLogoUrl();
 }

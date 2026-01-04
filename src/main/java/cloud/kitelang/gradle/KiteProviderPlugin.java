@@ -98,13 +98,15 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 metaInfDir.mkdirs();
 
                 var providerJson = new File(metaInfDir, "provider.json");
+                var logoUrl = extension.getLogoUrl().getOrNull();
+                var logoLine = logoUrl != null ? ",\n        \"logoUrl\": \"" + logoUrl + "\"" : "";
                 var content = String.format("""
                     {
                         "name": "%s",
                         "version": "%s",
-                        "protocolVersion": %d
+                        "protocolVersion": %d%s
                     }
-                    """, name, version, protocolVersion);
+                    """, name, version, protocolVersion, logoLine);
 
                 try {
                     Files.writeString(providerJson.toPath(), content);
