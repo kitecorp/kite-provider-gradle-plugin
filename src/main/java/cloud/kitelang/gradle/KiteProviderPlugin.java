@@ -382,7 +382,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
             var currentContent = Files.readString(currentManifest.toPath());
             var previousContent = Files.readString(previousManifest.toPath());
 
-            // Generate changelog
+            // Generate changelog by comparing manifests
             var changelog = compareManifests(previousContent, currentContent, previousVersion, currentVersion);
             var changelogFile = new File(docsDir, currentVersion + "/changelog.json");
             Files.writeString(changelogFile.toPath(), changelog);
@@ -488,29 +488,90 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
     /**
      * Extracts resource names and their properties from a manifest JSON string.
+     * Uses brace counting to handle nested JSON properly.
      */
     private java.util.Map<String, java.util.Set<String>> extractResources(String manifest) {
         var resources = new java.util.LinkedHashMap<String, java.util.Set<String>>();
 
-        // Find resource blocks: "ResourceName": { ... "properties": { ... } }
-        var resourcePattern = java.util.regex.Pattern.compile("\"(\\w+)\":\\s*\\{[^}]*\"properties\":\\s*\\{([^}]*)\\}");
-        var resourceMatcher = resourcePattern.matcher(manifest);
+        // Find "resources": { and extract the block
+        int resourcesStart = manifest.indexOf("\"resources\":");
+        if (resourcesStart == -1) return resources;
 
-        while (resourceMatcher.find()) {
-            var resourceName = resourceMatcher.group(1);
-            var propsBlock = resourceMatcher.group(2);
+        int resourcesBlockStart = manifest.indexOf('{', resourcesStart);
+        if (resourcesBlockStart == -1) return resources;
 
+        // Extract the entire resources block
+        String resourcesBlock = extractJsonBlock(manifest, resourcesBlockStart);
+
+        // Find each resource within the resources block
+        // Pattern: "ResourceName": { followed by "domain"
+        var resourceNamePattern = java.util.regex.Pattern.compile("\"(\\w+)\":\\s*\\{");
+        var matcher = resourceNamePattern.matcher(resourcesBlock);
+
+        while (matcher.find()) {
+            var resourceName = matcher.group(1);
+            // Skip if this is a property name like "domain", "type", "properties", etc.
+            if (resourceName.equals("domain") || resourceName.equals("properties") ||
+                resourceName.equals("type") || resourceName.equals("required") ||
+                resourceName.equals("cloudManaged") || resourceName.equals("deprecated") ||
+                resourceName.equals("default") || resourceName.equals("description") ||
+                resourceName.equals("validValues") || resourceName.equals("importable")) {
+                continue;
+            }
+
+            int resourceBlockStart = matcher.end() - 1; // Position of '{'
+            String resourceBlock = extractJsonBlock(resourcesBlock, resourceBlockStart);
+
+            // Find the properties block within this resource
+            int propsIndex = resourceBlock.indexOf("\"properties\":");
+            if (propsIndex == -1) continue;
+
+            int propsBlockStart = resourceBlock.indexOf('{', propsIndex);
+            if (propsBlockStart == -1) continue;
+
+            String propsBlock = extractJsonBlock(resourceBlock, propsBlockStart);
+
+            // Extract property names from the properties block
             var props = new java.util.HashSet<String>();
             var propPattern = java.util.regex.Pattern.compile("\"(\\w+)\":\\s*\\{");
             var propMatcher = propPattern.matcher(propsBlock);
             while (propMatcher.find()) {
-                props.add(propMatcher.group(1));
+                var propName = propMatcher.group(1);
+                // Skip metadata field names
+                if (!propName.equals("type") && !propName.equals("required") &&
+                    !propName.equals("cloudManaged") && !propName.equals("deprecated") &&
+                    !propName.equals("default") && !propName.equals("description") &&
+                    !propName.equals("validValues") && !propName.equals("importable")) {
+                    props.add(propName);
+                }
             }
 
-            resources.put(resourceName, props);
+            if (!props.isEmpty()) {
+                resources.put(resourceName, props);
+            }
         }
 
         return resources;
+    }
+
+    /**
+     * Extracts a JSON block starting at the given brace position using brace counting.
+     */
+    private String extractJsonBlock(String json, int startBrace) {
+        int depth = 0;
+        int end = startBrace;
+        for (int i = startBrace; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    end = i + 1;
+                    break;
+                }
+            }
+        }
+        return json.substring(startBrace, end);
     }
 
     /**
