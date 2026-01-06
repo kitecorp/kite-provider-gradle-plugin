@@ -5,19 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      runner_type:
-        description: 'Runner type'
-        type: choice
-        default: 'github'
-        options:
-          - github
-          - self-hosted
 
 jobs:
   build:
-    runs-on: ${{ github.event.inputs.runner_type == 'self-hosted' && 'self-hosted' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
