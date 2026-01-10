@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      changed: ${{ steps.check.outputs.changed }}
 
     steps:
       - uses: actions/checkout@v4
@@ -53,3 +56,22 @@ jobs:
           tag_name: v${{ steps.check.outputs.version }}
           name: v${{ steps.check.outputs.version }}
           generate_release_notes: true
+
+  # Call publish workflows after release is created
+  publish-gradle-portal:
+    needs: release
+    if: needs.release.outputs.changed == 'true'
+    uses: ./.github/workflows/publish-gradle-portal.yml
+    secrets: inherit
+
+  publish-maven-central:
+    needs: release
+    if: needs.release.outputs.changed == 'true'
+    uses: ./.github/workflows/publish-maven-central.yml
+    secrets: inherit
+
+  publish-github-packages:
+    needs: release
+    if: needs.release.outputs.changed == 'true'
+    uses: ./.github/workflows/publish-github-packages.yml
+    secrets: inherit
