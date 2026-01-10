@@ -7,7 +7,8 @@ plugins {
 
 // Only apply JReleaser when release tasks are requested to avoid classloader conflicts
 def jreleaserTasks = ['jreleaserDeploy', 'publishToMavenCentral', 'publishAll']
-if (gradle.startParameter.taskNames.any { taskName -> jreleaserTasks.any { taskName.contains(it) } }) {
+def applyJReleaser = gradle.startParameter.taskNames.any { taskName -> jreleaserTasks.any { taskName.contains(it) } }
+if (applyJReleaser) {
     apply plugin: 'org.jreleaser'
 }
 
@@ -49,22 +50,24 @@ gradlePlugin {
 
 // JReleaser configuration for Maven Central via new Central Portal
 // Note: No release block needed - we only use jreleaserDeploy for Maven Central
-jreleaser {
-    signing {
-        active = 'ALWAYS'
-        armored = true
-        mode = 'MEMORY'  // Use keys from environment variables
-    }
-    deploy {
-        maven {
-            mavenCentral {
-                sonatype {
-                    active = 'ALWAYS'
-                    url = 'https://central.sonatype.com/api/v1/publisher'
-                    stagingRepository('build/staging-deploy')
-                    applyMavenCentralRules = true
-                    retryDelay = 30
-                    maxRetries = 60
+if (applyJReleaser) {
+    jreleaser {
+        signing {
+            active = 'ALWAYS'
+            armored = true
+            mode = 'MEMORY'  // Use keys from environment variables
+        }
+        deploy {
+            maven {
+                mavenCentral {
+                    sonatype {
+                        active = 'ALWAYS'
+                        url = 'https://central.sonatype.com/api/v1/publisher'
+                        stagingRepository('build/staging-deploy')
+                        applyMavenCentralRules = true
+                        retryDelay = 30
+                        maxRetries = 60
+                    }
                 }
             }
         }
@@ -159,6 +162,8 @@ tasks.register('publishToMavenCentral') {
 }
 
 // Ensure staging happens before JReleaser deploy
-tasks.named('jreleaserDeploy') {
-    dependsOn 'publishAllPublicationsToStagingDeployRepository'
+if (applyJReleaser) {
+    tasks.named('jreleaserDeploy') {
+        dependsOn 'publishAllPublicationsToStagingDeployRepository'
+    }
 }
