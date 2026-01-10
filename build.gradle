@@ -2,11 +2,17 @@ plugins {
     // Auto-applies: java-gradle-plugin, maven-publish
     id 'com.gradle.plugin-publish' version '2.0.0'
     id 'signing'
-    id 'org.jreleaser' version '1.22.0'  // For Maven Central via new Central Portal
+    id 'org.jreleaser' version '1.22.0' apply false  // For Maven Central via new Central Portal
+}
+
+// Only apply JReleaser when release tasks are requested to avoid classloader conflicts
+def jreleaserTasks = ['jreleaserDeploy', 'publishToMavenCentral', 'publishAll']
+if (gradle.startParameter.taskNames.any { taskName -> jreleaserTasks.any { taskName.contains(it) } }) {
+    apply plugin: 'org.jreleaser'
 }
 
 group = 'cloud.kitelang'
-version = '0.2.2'
+version = '0.2.3'
 
 repositories {
     mavenCentral()
