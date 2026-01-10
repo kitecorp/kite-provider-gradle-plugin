@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'build.gradle'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -24,6 +25,14 @@ jobs:
           # Extract current version
           CURRENT=$(grep "^version = " build.gradle | sed "s/version = ['\"]//;s/['\"]//")
           echo "Current version: $CURRENT"
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+
+          # Manual dispatch always proceeds
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch - proceeding with release"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
           # Get previous version
           PREV=$(git show HEAD~1:build.gradle | grep "^version = " | sed "s/version = ['\"]//;s/['\"]//")
@@ -32,7 +41,6 @@ jobs:
           if [ "$CURRENT" != "$PREV" ]; then
             echo "Version changed from $PREV to $CURRENT"
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT" >> $GITHUB_OUTPUT
           else
             echo "Version unchanged"
             echo "changed=false" >> $GITHUB_OUTPUT
