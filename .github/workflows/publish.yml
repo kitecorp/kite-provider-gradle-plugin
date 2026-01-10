@@ -8,11 +8,13 @@ on:
       - 'build.gradle'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       version: ${{ steps.check.outputs.version }}
       changed: ${{ steps.check.outputs.changed }}
