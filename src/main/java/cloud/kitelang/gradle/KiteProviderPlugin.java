@@ -78,8 +78,9 @@ public class KiteProviderPlugin implements Plugin<Project> {
         javaApplication.getMainClass().set(mainClassProvider);
 
         // Add JVM flags to suppress Netty/gRPC sun.misc.Unsafe warnings
-        // These flags are needed for Java 22+ where Unsafe methods are terminally deprecated
+        // These flags are needed for Java 23+ where Unsafe methods are terminally deprecated
         javaApplication.setApplicationDefaultJvmArgs(java.util.List.of(
+                "--sun-misc-unsafe-memory-access=allow",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED",
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
                 "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED"
@@ -215,7 +216,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 var scriptContent = """
                     #!/bin/sh
                     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                    exec java --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
+                    exec java --sun-misc-unsafe-memory-access=allow --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
                     """.formatted(name);
 
                 try {
