@@ -77,6 +77,14 @@ public class KiteProviderPlugin implements Plugin<Project> {
         var javaApplication = project.getExtensions().getByType(JavaApplication.class);
         javaApplication.getMainClass().set(mainClassProvider);
 
+        // Add JVM flags to suppress Netty/gRPC sun.misc.Unsafe warnings
+        // These flags are needed for Java 22+ where Unsafe methods are terminally deprecated
+        javaApplication.setApplicationDefaultJvmArgs(java.util.List.of(
+                "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED"
+        ));
+
         // Generate provider.json as a resource (same format as distribution manifest)
         var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
         var mainSourceSet = sourceSets.getByName("main");
