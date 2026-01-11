@@ -169,14 +169,20 @@ public class KiteProviderPlugin implements Plugin<Project> {
             });
         });
 
-        // Wire up installDist to generate manifest
-        installDistTask.configure(task -> {
-            task.finalizedBy("generateProviderManifest");
-        });
-
         // Store docs enabled status for later use
         var docsEnabled = extension.getDocsEnabled().get();
         var docsOutputDir = extension.getDocsOutputDir().get();
+
+        // Wire up installDist to generate manifest and include schemas
+        installDistTask.configure(task -> {
+            task.finalizedBy("generateProviderManifest");
+
+            // Include schemas from docs/{version}/schemas/ if available
+            var schemasDir = project.file(docsOutputDir + "/" + version + "/schemas");
+            task.from(schemasDir, spec -> {
+                spec.into("schemas");
+            });
+        });
 
         // Register minimized distribution task
         var installMinDistTask = project.getTasks().register("installMinDist", Copy.class, task -> {
@@ -280,6 +286,11 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
             // Make installMinDist depend on generateProviderDocs so schemas exist
             installMinDistTask.configure(task -> {
+                task.dependsOn("generateProviderDocs");
+            });
+
+            // Make installDist depend on generateProviderDocs so schemas exist
+            installDistTask.configure(task -> {
                 task.dependsOn("generateProviderDocs");
             });
         }
