@@ -53,9 +53,8 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Create extension
         var extension = project.getExtensions().create("kiteProvider", KiteProviderExtension.class);
 
-        // Set defaults
+        // Set defaults (sdkVersion has no default - must be explicitly set)
         extension.getProtocolVersion().convention(1);
-        extension.getSdkVersion().convention("0.2.2");
         extension.getDocsEnabled().convention(true);
         extension.getDocsFormats().convention("html,markdown,schemas");
         extension.getDocsOutputDir().convention("docs");
@@ -68,7 +67,6 @@ public class KiteProviderPlugin implements Plugin<Project> {
         var name = extension.getName().getOrElse(project.getName());
         var version = project.getVersion().toString();
         var protocolVersion = extension.getProtocolVersion().get();
-        var sdkVersion = extension.getSdkVersion().get();
 
         // Create a provider that resolves the main class either from config or from generated manifest
         Provider<String> mainClassProvider = extension.getMainClass().orElse(
@@ -78,10 +76,6 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Configure application plugin with lazy main class resolution
         var javaApplication = project.getExtensions().getByType(JavaApplication.class);
         javaApplication.getMainClass().set(mainClassProvider);
-
-        // Add SDK dependency
-        project.getDependencies().add("implementation", "cloud.kitelang:kite-provider-sdk:" + sdkVersion);
-        project.getDependencies().add("annotationProcessor", "cloud.kitelang:kite-provider-sdk:" + sdkVersion);
 
         // Generate provider.json as a resource (same format as distribution manifest)
         var sourceSets = project.getExtensions().getByType(SourceSetContainer.class);

@@ -38,12 +38,6 @@ public abstract class KiteProviderExtension {
     public abstract Property<Integer> getProtocolVersion();
 
     /**
-     * The SDK version to use.
-     * Defaults to "0.1.0".
-     */
-    public abstract Property<String> getSdkVersion();
-
-    /**
      * Whether to generate documentation during build.
      * Defaults to true.
      */
