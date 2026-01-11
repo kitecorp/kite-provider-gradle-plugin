@@ -55,7 +55,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
         // Set defaults
         extension.getProtocolVersion().convention(1);
-        extension.getSdkVersion().convention("0.2.0");
+        extension.getSdkVersion().convention("0.2.1");
         extension.getDocsEnabled().convention(true);
         extension.getDocsFormats().convention("html,markdown,schemas");
         extension.getDocsOutputDir().convention("docs");
@@ -239,6 +239,28 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to write provider.json", e);
                 }
+            });
+        });
+
+        // Register global installation task - installs to ~/.kite/providers/
+        project.getTasks().register("installGlobal", Copy.class, task -> {
+            task.setGroup("distribution");
+            task.setDescription("Installs the provider globally to ~/.kite/providers/");
+            task.dependsOn(installDistTask);
+            task.dependsOn("generateProviderManifest");
+
+            var distDir = installDistTask.get().getDestinationDir();
+            task.from(distDir);
+
+            // Version directory format: {name}-v{version}
+            var versionDir = name + "-v" + version;
+            var globalProviderPath = System.getProperty("user.home") + "/.kite/providers/" + name + "/" + versionDir;
+            task.into(globalProviderPath);
+
+            task.doLast(t -> {
+                // Update 'current' symlink to point to this version
+                updateCurrentSymlink(project, name, versionDir);
+                project.getLogger().lifecycle("Provider installed to: " + globalProviderPath);
             });
         });
 
@@ -627,6 +649,31 @@ public class KiteProviderPlugin implements Plugin<Project> {
         throw new IllegalStateException(
                 "Could not auto-detect mainClass. Either set kiteProvider.mainClass explicitly, " +
                 "or ensure your provider class extends ProviderServer.");
+    }
+
+    /**
+     * Updates the 'current' symlink in the global providers directory.
+     * Points to the specified version directory.
+     */
+    private void updateCurrentSymlink(Project project, String providerName, String versionDir) {
+        var providersPath = Path.of(System.getProperty("user.home"), ".kite", "providers", providerName);
+        var currentLink = providersPath.resolve("current");
+
+        try {
+            Files.deleteIfExists(currentLink);
+
+            // Try symlink first
+            try {
+                Files.createSymbolicLink(currentLink, Path.of(versionDir));
+                project.getLogger().lifecycle("Updated current symlink: " + currentLink + " -> " + versionDir);
+            } catch (IOException | UnsupportedOperationException e) {
+                // Fallback: write version to text file (Windows without Developer Mode)
+                Files.writeString(currentLink, versionDir);
+                project.getLogger().lifecycle("Updated current file: " + currentLink + " -> " + versionDir);
+            }
+        } catch (IOException e) {
+            project.getLogger().warn("Failed to update current pointer: " + e.getMessage());
+        }
     }
 
     /**
