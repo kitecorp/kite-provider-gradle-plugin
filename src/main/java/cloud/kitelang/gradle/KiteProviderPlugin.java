@@ -174,14 +174,26 @@ public class KiteProviderPlugin implements Plugin<Project> {
             task.finalizedBy("generateProviderManifest");
         });
 
+        // Store docs enabled status for later use
+        var docsEnabled = extension.getDocsEnabled().get();
+        var docsOutputDir = extension.getDocsOutputDir().get();
+
         // Register minimized distribution task
-        project.getTasks().register("installMinDist", Copy.class, task -> {
+        var installMinDistTask = project.getTasks().register("installMinDist", Copy.class, task -> {
             var shadowJarTask = project.getTasks().named("shadowJar", ShadowJar.class);
             task.dependsOn(shadowJarTask);
 
             task.from(shadowJarTask.map(ShadowJar::getArchiveFile), spec -> {
                 spec.into("lib");
             });
+
+            // Include schemas from docs/{version}/schemas/ if available
+            var schemasDir = project.file(docsOutputDir + "/" + version + "/schemas");
+            task.from(schemasDir, spec -> {
+                spec.into("schemas");
+            });
+            // Handle case where schemas don't exist - task will just skip them
+            task.setDuplicatesStrategy(org.gradle.api.file.DuplicatesStrategy.INCLUDE);
 
             task.into(project.getLayout().getBuildDirectory().dir("install/" + name + "-min"));
 
@@ -264,6 +276,11 @@ public class KiteProviderPlugin implements Plugin<Project> {
             // Wire up to build lifecycle - generate docs after build
             project.getTasks().named("build").configure(task -> {
                 task.finalizedBy("generateProviderDocs");
+            });
+
+            // Make installMinDist depend on generateProviderDocs so schemas exist
+            installMinDistTask.configure(task -> {
+                task.dependsOn("generateProviderDocs");
             });
         }
     }
