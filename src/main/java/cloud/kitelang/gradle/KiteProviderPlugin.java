@@ -207,7 +207,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 var scriptContent = """
                     #!/bin/sh
                     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                    exec java --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
+                    exec java --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
                     """.formatted(name);
 
                 try {
