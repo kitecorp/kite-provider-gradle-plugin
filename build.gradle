@@ -22,7 +22,7 @@ repositories {
 
 dependencies {
     // Shadow plugin API for fat JAR support
-    implementation 'com.gradleup.shadow:shadow-gradle-plugin:9.3.0'
+    implementation 'com.gradleup.shadow:shadow-gradle-plugin:9.4.0'
 }
 
 java {
