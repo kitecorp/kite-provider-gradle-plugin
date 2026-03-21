@@ -434,12 +434,17 @@ public class KiteProviderPlugin implements Plugin<Project> {
             var currentContent = Files.readString(currentManifest.toPath());
             var previousContent = Files.readString(previousManifest.toPath());
 
-            // Generate changelog by comparing manifests
-            var changelog = compareManifests(previousContent, currentContent, previousVersion, currentVersion);
+            // Extract git commits between version tags
+            var providerName = docsDir.getParentFile().getName(); // e.g., "aws"
+            var commits = getGitCommits(project, providerName, previousVersion, currentVersion);
+
+            // Generate changelog by comparing manifests and including git commits
+            var changelog = compareManifests(previousContent, currentContent, previousVersion, currentVersion, commits);
             var changelogFile = new File(docsDir, currentVersion + "/changelog.json");
             Files.writeString(changelogFile.toPath(), changelog);
 
-            project.getLogger().lifecycle("Generated changelog comparing " + previousVersion + " to " + currentVersion);
+            project.getLogger().lifecycle("Generated changelog comparing " + previousVersion + " to " + currentVersion
+                    + " (" + commits.size() + " commit(s))");
 
         } catch (IOException e) {
             project.getLogger().warn("Failed to generate changelog: " + e.getMessage());
@@ -447,9 +452,51 @@ public class KiteProviderPlugin implements Plugin<Project> {
     }
 
     /**
-     * Compares two manifest JSON strings and returns a changelog JSON.
+     * Extracts git commit messages between two version tags.
+     * Uses tags like "aws-v0.1.6..aws-v0.1.7" to find the range.
+     *
+     * @param project        the Gradle project
+     * @param providerName   provider name (e.g., "aws")
+     * @param previousVersion previous version string
+     * @param currentVersion  current version string
+     * @return list of commit messages (subject lines only)
      */
-    private String compareManifests(String oldManifest, String newManifest, String oldVersion, String newVersion) {
+    private java.util.List<String> getGitCommits(Project project, String providerName, String previousVersion, String currentVersion) {
+        var commits = new java.util.ArrayList<String>();
+        var tagPrefix = providerName + "-v";
+        var range = tagPrefix + previousVersion + ".." + tagPrefix + currentVersion;
+
+        try {
+            var process = new ProcessBuilder("git", "log", "--pretty=format:%s", range)
+                    .directory(project.getProjectDir())
+                    .redirectErrorStream(true)
+                    .start();
+            var output = new String(process.getInputStream().readAllBytes()).trim();
+            var exitCode = process.waitFor();
+
+            if (exitCode == 0 && !output.isEmpty()) {
+                for (var line : output.split("\n")) {
+                    var trimmed = line.trim();
+                    if (!trimmed.isEmpty()) {
+                        commits.add(trimmed);
+                    }
+                }
+            } else {
+                project.getLogger().info("No git commits found for range: " + range);
+            }
+        } catch (Exception e) {
+            project.getLogger().info("Could not extract git commits: " + e.getMessage());
+        }
+
+        return commits;
+    }
+
+    /**
+     * Compares two manifest JSON strings and returns a changelog JSON.
+     * Includes git commit messages when available.
+     */
+    private String compareManifests(String oldManifest, String newManifest, String oldVersion, String newVersion,
+                                    java.util.List<String> commits) {
         var sb = new StringBuilder();
         sb.append("{\n");
         sb.append("  \"fromVersion\": \"").append(oldVersion).append("\",\n");
@@ -532,7 +579,21 @@ public class KiteProviderPlugin implements Plugin<Project> {
             if (i < entries.size() - 1) sb.append(",");
             sb.append("\n");
         }
-        sb.append("  }\n");
+        sb.append("  },\n");
+
+        // Git commits
+        sb.append("  \"commits\": [");
+        if (commits != null && !commits.isEmpty()) {
+            sb.append("\n");
+            for (int i = 0; i < commits.size(); i++) {
+                var escaped = commits.get(i).replace("\\", "\\\\").replace("\"", "\\\"");
+                sb.append("    \"").append(escaped).append("\"");
+                if (i < commits.size() - 1) sb.append(",");
+                sb.append("\n");
+            }
+            sb.append("  ");
+        }
+        sb.append("]\n");
         sb.append("}\n");
 
         return sb.toString();

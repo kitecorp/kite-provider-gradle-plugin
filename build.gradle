@@ -2,7 +2,7 @@ plugins {
     // Auto-applies: java-gradle-plugin, maven-publish
     id 'com.gradle.plugin-publish' version '2.0.0'
     id 'signing'
-    id 'org.jreleaser' version '1.22.0' apply false  // For Maven Central via new Central Portal
+    id 'org.jreleaser' version '1.23.0' apply false  // For Maven Central via new Central Portal
 }
 
 // Only apply JReleaser when release tasks are requested to avoid classloader conflicts
@@ -13,7 +13,7 @@ if (applyJReleaser) {
 }
 
 group = 'cloud.kitelang'
-version = '0.3.0'
+version = '0.3.1'
 
 repositories {
     mavenCentral()
