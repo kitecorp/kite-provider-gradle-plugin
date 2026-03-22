@@ -319,8 +319,8 @@ kiteProvider {
 
 dependencies {
     // Lombok (optional)
-    compileOnly 'org.projectlombok:lombok:1.18.42'
-    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    compileOnly 'org.projectlombok:lombok:1.18.44'
+    annotationProcessor 'org.projectlombok:lombok:1.18.44'
 
     // Your cloud SDK
     implementation 'com.example:cloud-sdk:1.0.0'
