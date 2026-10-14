@@ -54,10 +54,12 @@ class KiteProviderPluginFunctionalTest {
                 public class DocGeneratorCli {
                     public static void main(String[] args) throws Exception {
                         Path output = null;
+                        String provider = null;
                         String version = null;
                         String formats = null;
                         for (int i = 0; i < args.length; i++) {
                             switch (args[i]) {
+                                case "--provider" -> provider = args[++i];
                                 case "--output" -> output = Path.of(args[++i]);
                                 case "--version" -> version = args[++i];
                                 case "--format" -> formats = args[++i];
@@ -72,7 +74,15 @@ class KiteProviderPluginFunctionalTest {
                                 default -> base.resolve(format + "/index.html");
                             };
                             Files.createDirectories(target.getParent());
-                            Files.writeString(target, format + " for " + version);
+                            Files.writeString(target, format + " for " + version + " from " + provider);
+                        }
+                        // One extra schema per line of extra-types.txt, so a test can remove a resource
+                        try (var extra = DocGeneratorCli.class.getResourceAsStream("/extra-types.txt")) {
+                            if (extra != null) {
+                                for (var type : new String(extra.readAllBytes()).lines().toList()) {
+                                    Files.writeString(base.resolve("schemas/" + type + ".kite"), type);
+                                }
+                            }
                         }
                     }
                 }
@@ -90,7 +100,8 @@ class KiteProviderPluginFunctionalTest {
     void installDistShipsSchemasGeneratedUnderBuild() throws IOException {
         run("installDist");
 
-        assertEquals("schemas for null",
+        // "for null": the dist's schemas are generated without --version, straight into schemas/
+        assertEquals("schemas for null from demo.Main",
                 Files.readString(projectDir.resolve("build/install/demo/schemas/demo.kite")));
         assertEquals(false, Files.exists(projectDir.resolve("docs")));
     }
@@ -99,17 +110,42 @@ class KiteProviderPluginFunctionalTest {
     void installMinDistShipsSchemasGeneratedUnderBuild() throws IOException {
         run("installMinDist");
 
-        assertEquals("schemas for null",
+        assertEquals("schemas for null from demo.Main",
                 Files.readString(projectDir.resolve("build/install/demo-min/schemas/demo.kite")));
         assertEquals(false, Files.exists(projectDir.resolve("docs")));
+    }
+
+    @Test
+    void installDistDropsTheSchemaOfARemovedResource() throws IOException {
+        write("src/main/resources/extra-types.txt", "Removed\n");
+        run("installDist");
+        assertEquals("Removed", Files.readString(projectDir.resolve("build/install/demo/schemas/Removed.kite")));
+
+        write("src/main/resources/extra-types.txt", "");
+        run("installDist");
+
+        assertEquals(false, Files.exists(projectDir.resolve("build/install/demo/schemas/Removed.kite")));
+    }
+
+    @Test
+    void withDocsDisabledInstallDistShipsHandMaintainedSchemas() throws IOException {
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle"))
+                .replace("mainClass = 'demo.Main'", "mainClass = 'demo.Main'\n    docsEnabled = false"));
+        write("docs/1.0.0/schemas/Hand.kite", "hand-written schema");
+
+        run("installDist");
+
+        assertEquals("hand-written schema",
+                Files.readString(projectDir.resolve("build/install/demo/schemas/Hand.kite")));
+        assertEquals(false, Files.exists(projectDir.resolve("build/generated/kite/provider-schemas")));
     }
 
     @Test
     void generateProviderDocsWritesVersionedDocsWhenAskedFor() throws IOException {
         run("generateProviderDocs");
 
-        assertEquals("schemas for 1.0.0", Files.readString(projectDir.resolve("docs/1.0.0/schemas/demo.kite")));
-        assertEquals("markdown for 1.0.0", Files.readString(projectDir.resolve("docs/1.0.0/markdown/demo.md")));
+        assertEquals("schemas for 1.0.0 from demo.Main", Files.readString(projectDir.resolve("docs/1.0.0/schemas/demo.kite")));
+        assertEquals("markdown for 1.0.0 from demo.Main", Files.readString(projectDir.resolve("docs/1.0.0/markdown/demo.md")));
     }
 
     private BuildResult run(String task) {

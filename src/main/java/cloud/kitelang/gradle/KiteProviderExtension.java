@@ -10,10 +10,7 @@ import org.gradle.api.provider.Property;
  * kiteProvider {
  *     name = 'aws'
  *     mainClass = 'cloud.kitelang.provider.aws.AwsProvider'
- *     docs {
- *         enabled = true
- *         formats = 'html,markdown'
- *     }
+ *     docsFormats = 'html,markdown'
  * }
  * </pre>
  */
@@ -38,8 +35,10 @@ public abstract class KiteProviderExtension {
     public abstract Property<Integer> getProtocolVersion();
 
     /**
-     * Whether to generate documentation during build.
-     * Defaults to true.
+     * Whether the provider has generated documentation and schemas. When true, the
+     * explicit {@code generateProviderDocs} task exists and distributions ship schemas
+     * generated under build/. When false, a hand-maintained docs/{version}/schemas
+     * directory is shipped if present. Defaults to true.
      */
     public abstract Property<Boolean> getDocsEnabled();
 
