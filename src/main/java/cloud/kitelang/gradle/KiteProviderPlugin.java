@@ -53,7 +53,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Create extension
         var extension = project.getExtensions().create("kiteProvider", KiteProviderExtension.class);
 
-        // Set defaults (sdkVersion has no default - must be explicitly set)
+        // Set defaults
         extension.getProtocolVersion().convention(1);
         extension.getDocsEnabled().convention(true);
         extension.getDocsFormats().convention("html,markdown,schemas");
@@ -171,23 +171,40 @@ public class KiteProviderPlugin implements Plugin<Project> {
             });
         });
 
-        // Store docs enabled status for later use
         var docsEnabled = extension.getDocsEnabled().get();
         var docsOutputDir = extension.getDocsOutputDir().get();
+
+        // Distributions ship schemas generated under build/, never the tracked docs
+        // directory, so installing a provider leaves the checkout clean. Copying from
+        // the task itself also makes installDist and installMinDist depend on it. With
+        // docs disabled there is no generator to run, and a hand-maintained
+        // docs/{version}/schemas directory is shipped if present.
+        Object schemasSource;
+        if (docsEnabled) {
+            var generatedRoot = project.getLayout().getBuildDirectory().dir("generated/kite/provider-schemas");
+            schemasSource = project.getTasks().register("generateProviderSchemas", org.gradle.api.tasks.JavaExec.class, task -> {
+                task.setDescription("Generates the Kite schemas shipped in the provider distribution");
+                configureDocGenerator(task, sourceSets, mainClassProvider);
+                // Without --version the generator writes to <output>/schemas
+                task.args("--output", generatedRoot.get().getAsFile().getAbsolutePath(), "--format", "schemas");
+                task.getOutputs().dir(generatedRoot.map(dir -> dir.dir("schemas")));
+                // Without this a resource removed from the provider keeps its old schema
+                task.doFirst(t -> project.delete(generatedRoot));
+            });
+        } else {
+            schemasSource = project.file(docsOutputDir + "/" + version + "/schemas");
+        }
 
         // Wire up installDist to generate manifest and include schemas
         installDistTask.configure(task -> {
             task.finalizedBy("generateProviderManifest");
-
-            // Include schemas from docs/{version}/schemas/ if available
-            var schemasDir = project.file(docsOutputDir + "/" + version + "/schemas");
-            task.from(schemasDir, spec -> {
+            task.from(schemasSource, spec -> {
                 spec.into("schemas");
             });
         });
 
         // Register minimized distribution task
-        var installMinDistTask = project.getTasks().register("installMinDist", Copy.class, task -> {
+        project.getTasks().register("installMinDist", Copy.class, task -> {
             var shadowJarTask = project.getTasks().named("shadowJar", ShadowJar.class);
             task.dependsOn(shadowJarTask);
 
@@ -195,9 +212,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 spec.into("lib");
             });
 
-            // Include schemas from docs/{version}/schemas/ if available
-            var schemasDir = project.file(docsOutputDir + "/" + version + "/schemas");
-            task.from(schemasDir, spec -> {
+            task.from(schemasSource, spec -> {
                 spec.into("schemas");
             });
             // Handle case where schemas don't exist - task will just skip them
@@ -266,28 +281,22 @@ public class KiteProviderPlugin implements Plugin<Project> {
             });
         });
 
-        // Register documentation generation task
-        if (extension.getDocsEnabled().get()) {
+        // Register documentation generation task. It rewrites the tracked docs
+        // directory, so it runs only when asked for (the provider release workflow
+        // calls it), never as a side effect of build or installDist.
+        if (docsEnabled) {
             project.getTasks().register("generateProviderDocs", org.gradle.api.tasks.JavaExec.class, task -> {
                 task.setGroup("documentation");
                 task.setDescription("Generates HTML and Markdown documentation for provider resources");
-
-                // Depend on classes compilation
-                task.dependsOn("classes");
-
-                // Use the runtime classpath
-                task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
-                task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
+                configureDocGenerator(task, sourceSets, mainClassProvider);
 
                 // Pass arguments - versioned mode with base output directory
                 // CLI will generate non-versioned index.html at docs root
                 // and resource pages at docs/{version}/
-                var baseOutputDir = extension.getDocsOutputDir().get();
                 var formats = extension.getDocsFormats().get();
 
                 task.args(
-                    "--provider", mainClassProvider.get(),
-                    "--output", project.file(baseOutputDir).getAbsolutePath(),
+                    "--output", project.file(docsOutputDir).getAbsolutePath(),
                     "--version", version,
                     "--format", formats
                 );
@@ -298,26 +307,23 @@ public class KiteProviderPlugin implements Plugin<Project> {
 
                 // After docs generated, update versions.json and generate changelog
                 task.doLast(t -> {
-                    updateVersionsJson(project, baseOutputDir, name, version);
-                    generateChangelog(project, baseOutputDir, version);
+                    updateVersionsJson(project, docsOutputDir, name, version);
+                    generateChangelog(project, docsOutputDir, version);
                 });
             });
-
-            // Wire up to build lifecycle - generate docs after build
-            project.getTasks().named("build").configure(task -> {
-                task.finalizedBy("generateProviderDocs");
-            });
-
-            // Make installMinDist depend on generateProviderDocs so schemas exist
-            installMinDistTask.configure(task -> {
-                task.dependsOn("generateProviderDocs");
-            });
-
-            // Make installDist depend on generateProviderDocs so schemas exist
-            installDistTask.configure(task -> {
-                task.dependsOn("generateProviderDocs");
-            });
         }
+    }
+
+    /**
+     * Points a JavaExec task at the SDK's doc generator, run on the provider's own
+     * runtime classpath so it can load the provider class.
+     */
+    private void configureDocGenerator(org.gradle.api.tasks.JavaExec task, SourceSetContainer sourceSets,
+                                       Provider<String> mainClassProvider) {
+        task.dependsOn("classes");
+        task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
+        task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
+        task.args("--provider", mainClassProvider.get());
     }
 
     /**

@@ -138,8 +138,8 @@ dependencies {
 | `name` | String | project name | Provider name used in `provider.json` |
 | `mainClass` | String | auto-detected | Fully qualified main class extending `ProviderServer` or `KiteProvider` |
 | `protocolVersion` | Integer | `1` | Provider protocol version |
-| `sdkVersion` | String | `0.2.0` | Kite Provider SDK version |
-| `docsEnabled` | Boolean | `true` | Generate documentation during build |
+| `logoUrl` | String | none | Logo URL written to the `provider.json` resource |
+| `docsEnabled` | Boolean | `true` | Register `generateProviderDocs` and generate the schemas shipped in distributions |
 | `docsFormats` | String | `html,markdown,schemas` | Comma-separated output formats |
 | `docsOutputDir` | String | `docs` | Output directory (relative to project root) |
 
@@ -169,14 +169,6 @@ kiteProvider {
 }
 ```
 
-Specific SDK version:
-
-```groovy
-kiteProvider {
-    sdkVersion = '0.2.0'
-}
-```
-
 Full configuration:
 
 ```groovy
@@ -184,7 +176,6 @@ kiteProvider {
     name = 'my-cloud'
     mainClass = 'com.example.provider.MyCloudProvider'
     protocolVersion = 1
-    sdkVersion = '0.1.0'
 }
 ```
 
@@ -201,7 +192,8 @@ The plugin registers the following tasks:
 | `generateProviderInfo` | Generates `provider.json` as JAR resource |
 | `installMinDist` | Creates minimized distribution using shadow JAR |
 | `shadowJar` | Creates fat JAR with all dependencies |
-| `generateProviderDocs` | Generates HTML, Markdown, and Kite schema documentation (runs after `build`) |
+| `generateProviderSchemas` | Generates the Kite schemas shipped by `installDist` and `installMinDist`, under `build/` |
+| `generateProviderDocs` | Generates HTML, Markdown, and Kite schema documentation into `docsOutputDir` (runs only when called) |
 
 ### Build Output
 
@@ -213,12 +205,13 @@ build/install/<provider-name>/
 │   └── provider          # Launcher script
 ├── lib/
 │   └── *.jar            # Dependencies
+├── schemas/             # Kite schemas (from generateProviderSchemas)
 └── provider.json        # Provider manifest
 ```
 
 ### Documentation Generation
 
-The plugin automatically generates documentation for your provider resources during build. Documentation is output to `docs/` by default, making it easy to commit to git and view on GitHub.
+The `generateProviderDocs` task generates documentation for your provider resources. It writes to `docs/` by default, which is meant to be committed to git and viewed on GitHub, so it runs only when you call it: `build` and `installDist` never touch `docs/`. The Kite provider release workflow calls it when it publishes a version.
 
 #### Output Structure
 
@@ -281,9 +274,9 @@ kiteProvider {
 }
 ```
 
-#### Manual Generation
+#### Generating Docs
 
-Run documentation generation manually:
+Run documentation generation:
 
 ```bash
 ./gradlew generateProviderDocs
