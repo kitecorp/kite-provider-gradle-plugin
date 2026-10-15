@@ -321,7 +321,7 @@ dependencies {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 ```
@@ -456,7 +456,7 @@ gpg --list-keys --keyid-format SHORT
 ## Requirements
 
 - Java 25+
-- Gradle 8.0+
+- Gradle 9.1+, running on JDK 25 (the plugin is built for Java 25)
 
 ## Related Projects
 
