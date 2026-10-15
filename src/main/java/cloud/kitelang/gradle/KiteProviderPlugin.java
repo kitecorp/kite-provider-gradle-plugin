@@ -4,9 +4,11 @@ import com.github.jengelman.gradle.plugins.shadow.ShadowPlugin;
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.plugins.ApplicationPlugin;
 import org.gradle.api.plugins.JavaApplication;
 import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -16,6 +18,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Gradle plugin that simplifies building Kite infrastructure providers.
@@ -67,6 +71,7 @@ public class KiteProviderPlugin implements Plugin<Project> {
         var name = extension.getName().getOrElse(project.getName());
         var version = project.getVersion().toString();
         var protocolVersion = extension.getProtocolVersion().get();
+        var minJava = minJava(project);
 
         // Create a provider that resolves the main class either from config or from generated manifest
         Provider<String> mainClassProvider = extension.getMainClass().orElse(
@@ -93,28 +98,17 @@ public class KiteProviderPlugin implements Plugin<Project> {
         // Register task to generate provider.json resource
         var generateProviderInfo = project.getTasks().register("generateProviderInfo", task -> {
             task.getOutputs().dir(generatedResourcesDir);
+            declareManifestInputs(task, name, version, protocolVersion, minJava);
+            task.getInputs().property("logoUrl", extension.getLogoUrl()).optional(true);
 
             task.doLast(t -> {
                 var outputDir = generatedResourcesDir.get().getAsFile();
                 var metaInfDir = new File(outputDir, "META-INF/kite");
                 metaInfDir.mkdirs();
 
-                var providerJson = new File(metaInfDir, "provider.json");
                 var logoUrl = extension.getLogoUrl().getOrNull();
-                var logoLine = logoUrl != null ? ",\n        \"logoUrl\": \"" + logoUrl + "\"" : "";
-                var content = String.format("""
-                    {
-                        "name": "%s",
-                        "version": "%s",
-                        "protocolVersion": %d%s
-                    }
-                    """, name, version, protocolVersion, logoLine);
-
-                try {
-                    Files.writeString(providerJson.toPath(), content);
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to write provider.json", e);
-                }
+                writeProviderJson(new File(metaInfDir, "provider.json"), name, version, protocolVersion,
+                        logoUrl == null ? List.of() : List.of(stringField("logoUrl", logoUrl)), minJava);
             });
         });
 
@@ -151,24 +145,9 @@ public class KiteProviderPlugin implements Plugin<Project> {
             var manifestFile = new File(installDir, "provider.json");
 
             task.getOutputs().file(manifestFile);
+            declareManifestInputs(task, name, version, protocolVersion, minJava);
 
-            task.doLast(t -> {
-                var content = String.format("""
-                    {
-                        "name": "%s",
-                        "version": "%s",
-                        "protocolVersion": %d,
-                        "executable": "bin/provider"
-                    }
-                    """, name, project.getVersion(), protocolVersion);
-
-                try {
-                    manifestFile.getParentFile().mkdirs();
-                    Files.writeString(manifestFile.toPath(), content);
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to write provider.json", e);
-                }
-            });
+            task.doLast(t -> writeDistributionProviderJson(manifestFile, name, version, protocolVersion, minJava));
         });
 
         var docsEnabled = extension.getDocsEnabled().get();
@@ -225,12 +204,18 @@ public class KiteProviderPlugin implements Plugin<Project> {
                 var binDir = new File(buildDir, "install/" + name + "-min/bin");
                 binDir.mkdirs();
 
-                // Create launcher script
+                // Create launcher script. It picks java the way the engine's minJava check
+                // looks for it (JAVA_HOME/bin/java, then java on PATH), so the java the
+                // engine judges is the java that runs the provider.
                 var launcherScript = new File(binDir, "provider");
                 var scriptContent = """
                     #!/bin/sh
                     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                    exec java --sun-misc-unsafe-memory-access=allow --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
+                    JAVACMD=java
+                    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+                        JAVACMD="$JAVA_HOME/bin/java"
+                    fi
+                    exec "$JAVACMD" --sun-misc-unsafe-memory-access=allow --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
                     """.formatted(name);
 
                 try {
@@ -240,22 +225,8 @@ public class KiteProviderPlugin implements Plugin<Project> {
                     throw new RuntimeException("Failed to create launcher script", e);
                 }
 
-                // Generate provider.json
-                var manifestFile = new File(buildDir, "install/" + name + "-min/provider.json");
-                var manifestContent = String.format("""
-                    {
-                        "name": "%s",
-                        "version": "%s",
-                        "protocolVersion": %d,
-                        "executable": "bin/provider"
-                    }
-                    """, name, project.getVersion(), protocolVersion);
-
-                try {
-                    Files.writeString(manifestFile.toPath(), manifestContent);
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to write provider.json", e);
-                }
+                writeDistributionProviderJson(new File(buildDir, "install/" + name + "-min/provider.json"),
+                        name, version, protocolVersion, minJava);
             });
         });
 
@@ -324,6 +295,64 @@ public class KiteProviderPlugin implements Plugin<Project> {
         task.setClasspath(sourceSets.getByName("main").getRuntimeClasspath());
         task.getMainClass().set("cloud.kitelang.provider.docgen.DocGeneratorCli");
         task.args("--provider", mainClassProvider.get());
+    }
+
+    /**
+     * The oldest Java that can run the provider: the Java its classes are compiled for.
+     * Gradle sets the target to the toolchain's version when a toolchain is configured,
+     * otherwise to the explicit targetCompatibility or the JVM running the build.
+     */
+    private static int minJava(Project project) {
+        var target = project.getExtensions().getByType(JavaPluginExtension.class).getTargetCompatibility();
+        return Integer.parseInt(target.getMajorVersion());
+    }
+
+    /**
+     * A task that declares only its output is skipped as up to date while that output is
+     * unchanged, so without these inputs a new version or Java target would leave the
+     * provider.json of the previous build in place.
+     */
+    private static void declareManifestInputs(Task task, String name, String version, int protocolVersion,
+                                              int minJava) {
+        task.getInputs().property("name", name);
+        task.getInputs().property("version", version);
+        task.getInputs().property("protocolVersion", protocolVersion);
+        task.getInputs().property("minJava", minJava);
+    }
+
+    /** The provider.json of a distribution, which the engine reads to start the provider. */
+    private static void writeDistributionProviderJson(File file, String name, String version, int protocolVersion,
+                                                      int minJava) {
+        writeProviderJson(file, name, version, protocolVersion,
+                List.of(stringField("executable", "bin/provider")), minJava);
+    }
+
+    /**
+     * Writes a provider.json. {@code minJava} lets the engine refuse an older java with a
+     * message naming both versions, instead of a provider that dies during the handshake.
+     *
+     * @param extraFields fields placed between protocolVersion and minJava, already rendered
+     */
+    private static void writeProviderJson(File file, String name, String version, int protocolVersion,
+                                          List<String> extraFields, int minJava) {
+        var fields = new ArrayList<String>();
+        fields.add(stringField("name", name));
+        fields.add(stringField("version", version));
+        fields.add("\"protocolVersion\": " + protocolVersion);
+        fields.addAll(extraFields);
+        fields.add("\"minJava\": " + minJava);
+        var content = "{\n    " + String.join(",\n    ", fields) + "\n}\n";
+        try {
+            file.getParentFile().mkdirs();
+            Files.writeString(file.toPath(), content);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to write " + file, e);
+        }
+    }
+
+    /** A JSON string field; quotes and backslashes in the value are escaped so the file stays valid JSON. */
+    private static String stringField(String key, String value) {
+        return "\"" + key + "\": \"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     /**

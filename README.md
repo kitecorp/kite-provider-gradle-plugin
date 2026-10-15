@@ -25,7 +25,7 @@ The simplest option - no additional repository configuration needed:
 
 ```groovy
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 ```
 
@@ -46,7 +46,7 @@ pluginManagement {
 ```groovy
 // build.gradle
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 ```
 
@@ -73,7 +73,7 @@ pluginManagement {
 ```groovy
 // build.gradle
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 ```
 
@@ -100,7 +100,7 @@ pluginManagement {
 ```groovy
 // build.gradle
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 ```
 
@@ -115,7 +115,7 @@ Build and install locally:
 
 ```groovy
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 
 group = 'com.example'
@@ -296,7 +296,7 @@ Run documentation generation:
 
 ```groovy
 plugins {
-    id 'cloud.kitelang.provider' version '0.1.0'
+    id 'cloud.kitelang.provider' version '0.6.0'
 }
 
 group = 'cloud.kitelang'
@@ -349,13 +349,17 @@ The generated `provider.json` follows this format:
     "name": "my-cloud",
     "version": "0.1.0",
     "protocolVersion": 1,
-    "executable": "bin/provider"
+    "executable": "bin/provider",
+    "minJava": 25
 }
 ```
 
-This file is generated in two locations:
+`minJava` is the Java the provider's classes are compiled for: the toolchain's version, or `targetCompatibility` when the build sets no toolchain. Before it starts the provider, the Kite engine checks the `java` the launcher will run (`JAVA_HOME/bin/java`, otherwise `java` on `PATH`) and stops with a message such as `my-cloud 0.1.0 needs Java 25 or newer; found Java 21 at /usr/bin/java`. Providers built with plugin 0.5.0 or older have no `minJava`, and the engine starts them without this check.
+
+This file is generated in three locations:
 1. **Distribution directory** (`build/install/<name>/provider.json`) - for engine discovery
-2. **JAR resource** (`META-INF/kite/provider.json`) - for runtime name/version auto-detection
+2. **Minimized distribution directory** (`build/install/<name>-min/provider.json`) - for engine discovery
+3. **JAR resource** (`META-INF/kite/provider.json`) - for runtime name/version auto-detection
 
 ## Publishing (For Plugin Maintainers)
 

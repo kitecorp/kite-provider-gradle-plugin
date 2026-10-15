@@ -9,8 +9,11 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Runs the plugin against a minimal provider project. The project carries its own
@@ -146,6 +149,183 @@ class KiteProviderPluginFunctionalTest {
 
         assertEquals("schemas for 1.0.0 from demo.Main", Files.readString(projectDir.resolve("docs/1.0.0/schemas/demo.kite")));
         assertEquals("markdown for 1.0.0 from demo.Main", Files.readString(projectDir.resolve("docs/1.0.0/markdown/demo.md")));
+    }
+
+    @Test
+    void installDistManifestCarriesTheToolchainAsMinJava() throws IOException {
+        useToolchain25();
+
+        run("installDist");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "executable": "bin/provider",
+                    "minJava": 25
+                }
+                """, Files.readString(projectDir.resolve("build/install/demo/provider.json")));
+    }
+
+    @Test
+    void installMinDistManifestCarriesTheToolchainAsMinJava() throws IOException {
+        useToolchain25();
+
+        run("installMinDist");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "executable": "bin/provider",
+                    "minJava": 25
+                }
+                """, Files.readString(projectDir.resolve("build/install/demo-min/provider.json")));
+    }
+
+    @Test
+    void jarResourceManifestCarriesTheToolchainAsMinJava() throws IOException {
+        useToolchain25();
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle"))
+                .replace("mainClass = 'demo.Main'", "mainClass = 'demo.Main'\n    logoUrl = 'https://example.com/logo.svg'"));
+
+        run("generateProviderInfo");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "logoUrl": "https://example.com/logo.svg",
+                    "minJava": 25
+                }
+                """, Files.readString(projectDir.resolve("build/generated/resources/kite/META-INF/kite/provider.json")));
+    }
+
+    @Test
+    void withoutAToolchainMinJavaIsTheJavaTheBuildTargets() throws IOException {
+        // 24, not the 25 this test runs on: the value comes from the build, not from the JVM running Gradle
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle")) + """
+
+                java {
+                    sourceCompatibility = JavaVersion.VERSION_24
+                    targetCompatibility = JavaVersion.VERSION_24
+                }
+                """);
+
+        run("installDist");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "executable": "bin/provider",
+                    "minJava": 24
+                }
+                """, Files.readString(projectDir.resolve("build/install/demo/provider.json")));
+    }
+
+    @Test
+    void jarResourceManifestEscapesQuotesSoItStaysValidJson() throws IOException {
+        useToolchain25();
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle"))
+                .replace("mainClass = 'demo.Main'", "mainClass = 'demo.Main'\n    logoUrl = 'https://example.com/\"logo\".svg'"));
+
+        run("generateProviderInfo");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "logoUrl": "https://example.com/\\"logo\\".svg",
+                    "minJava": 25
+                }
+                """, Files.readString(projectDir.resolve("build/generated/resources/kite/META-INF/kite/provider.json")));
+    }
+
+    @Test
+    void jarResourceManifestFollowsAChangedJavaTarget() throws IOException {
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle")) + """
+
+                java {
+                    sourceCompatibility = JavaVersion.VERSION_24
+                    targetCompatibility = JavaVersion.VERSION_24
+                }
+                """);
+        run("generateProviderInfo");
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle")).replace("VERSION_24", "VERSION_23"));
+
+        run("generateProviderInfo");
+
+        assertEquals("""
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "protocolVersion": 1,
+                    "minJava": 23
+                }
+                """, Files.readString(projectDir.resolve("build/generated/resources/kite/META-INF/kite/provider.json")));
+    }
+
+    @Test
+    void installMinDistLauncherRunsTheJavaFromJavaHome() throws Exception {
+        run("installMinDist");
+        var javaHome = fakeJava("java-home/bin", "java from JAVA_HOME");
+        fakeJava("path-bin", "java from PATH");
+
+        var output = runLauncher(Map.of("JAVA_HOME", javaHome.toString(),
+                "PATH", projectDir.resolve("path-bin") + ":/usr/bin:/bin"));
+
+        assertEquals("java from JAVA_HOME\n", output);
+    }
+
+    @Test
+    void installMinDistLauncherFallsBackToTheJavaOnPath() throws Exception {
+        run("installMinDist");
+        fakeJava("path-bin", "java from PATH");
+
+        var output = runLauncher(Map.of("JAVA_HOME", "",
+                "PATH", projectDir.resolve("path-bin") + ":/usr/bin:/bin"));
+
+        assertEquals("java from PATH\n", output);
+    }
+
+    private void useToolchain25() throws IOException {
+        write("build.gradle", Files.readString(projectDir.resolve("build.gradle")) + """
+
+                java {
+                    toolchain {
+                        languageVersion = JavaLanguageVersion.of(25)
+                    }
+                }
+                """);
+    }
+
+    /**
+     * Writes {@code <dir>/java}, a script that prints {@code message}, and returns the
+     * directory above {@code dir}: for "java-home/bin" that is the JAVA_HOME to set.
+     */
+    private Path fakeJava(String dir, String message) throws IOException {
+        var java = projectDir.resolve(dir).resolve("java");
+        write(projectDir.relativize(java).toString(), "#!/bin/sh\necho '" + message + "'\n");
+        assertTrue(java.toFile().setExecutable(true));
+        return java.getParent().getParent();
+    }
+
+    /** Runs the minimized distribution's launcher with exactly {@code env} and returns its output. */
+    private String runLauncher(Map<String, String> env) throws Exception {
+        var builder = new ProcessBuilder(projectDir.resolve("build/install/demo-min/bin/provider").toString())
+                .redirectErrorStream(true);
+        builder.environment().clear();
+        builder.environment().putAll(env);
+        var process = builder.start();
+        var output = new String(process.getInputStream().readAllBytes());
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS));
+        return output;
     }
 
     private BuildResult run(String task) {
