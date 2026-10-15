@@ -198,22 +198,27 @@ public class KiteProviderPlugin implements Plugin<Project> {
             task.setDuplicatesStrategy(org.gradle.api.file.DuplicatesStrategy.INCLUDE);
 
             task.into(project.getLayout().getBuildDirectory().dir("install/" + name + "-min"));
+            declareManifestInputs(task, name, version, protocolVersion, minJava);
 
             task.doLast(t -> {
                 var buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
                 var binDir = new File(buildDir, "install/" + name + "-min/bin");
                 binDir.mkdirs();
 
-                // Create launcher script. It picks java the way the engine's minJava check
-                // looks for it (JAVA_HOME/bin/java, then java on PATH), so the java the
-                // engine judges is the java that runs the provider.
+                // Create launcher script. It picks java like installDist's Gradle start script,
+                // which the engine's minJava check also follows: JAVA_HOME/bin/java when
+                // JAVA_HOME is set (an error if it is missing), otherwise java on PATH.
                 var launcherScript = new File(binDir, "provider");
                 var scriptContent = """
                     #!/bin/sh
                     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
                     JAVACMD=java
-                    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+                    if [ -n "$JAVA_HOME" ]; then
                         JAVACMD="$JAVA_HOME/bin/java"
+                        if [ ! -x "$JAVACMD" ]; then
+                            echo "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME" >&2
+                            exit 1
+                        fi
                     fi
                     exec "$JAVACMD" --sun-misc-unsafe-memory-access=allow --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED -jar "$SCRIPT_DIR/../lib/%s-provider.jar" "$@"
                     """.formatted(name);

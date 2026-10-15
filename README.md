@@ -354,7 +354,7 @@ The generated `provider.json` follows this format:
 }
 ```
 
-`minJava` is the Java the provider's classes are compiled for: the toolchain's version, or `targetCompatibility` when the build sets no toolchain. Before it starts the provider, the Kite engine checks the `java` the launcher will run (`JAVA_HOME/bin/java`, otherwise `java` on `PATH`) and stops with a message such as `my-cloud 0.1.0 needs Java 25 or newer; found Java 21 at /usr/bin/java`. Providers built with plugin 0.5.0 or older have no `minJava`, and the engine starts them without this check.
+`minJava` is the Java the provider's classes are compiled for: the toolchain's version, or `targetCompatibility` when the build sets no toolchain. Before it starts the provider, the Kite engine checks the `java` the launcher will run (`JAVA_HOME/bin/java` when `JAVA_HOME` is set, otherwise `java` on `PATH`) and stops with a message such as `my-cloud 0.1.0 needs Java 25 or newer; found Java 21 at /usr/bin/java`. Providers built with plugin 0.5.0 or older have no `minJava`, and the engine starts them without this check.
 
 This file is generated in three locations:
 1. **Distribution directory** (`build/install/<name>/provider.json`) - for engine discovery

@@ -277,21 +277,34 @@ class KiteProviderPluginFunctionalTest {
         var javaHome = fakeJava("java-home/bin", "java from JAVA_HOME");
         fakeJava("path-bin", "java from PATH");
 
-        var output = runLauncher(Map.of("JAVA_HOME", javaHome.toString(),
+        var launch = runLauncher(Map.of("JAVA_HOME", javaHome.toString(),
                 "PATH", projectDir.resolve("path-bin") + ":/usr/bin:/bin"));
 
-        assertEquals("java from JAVA_HOME\n", output);
+        assertEquals(new Launch(0, "java from JAVA_HOME\n"), launch);
     }
 
     @Test
-    void installMinDistLauncherFallsBackToTheJavaOnPath() throws Exception {
+    void installMinDistLauncherWithoutJavaHomeRunsTheJavaOnPath() throws Exception {
         run("installMinDist");
         fakeJava("path-bin", "java from PATH");
 
-        var output = runLauncher(Map.of("JAVA_HOME", "",
+        var launch = runLauncher(Map.of("JAVA_HOME", "",
                 "PATH", projectDir.resolve("path-bin") + ":/usr/bin:/bin"));
 
-        assertEquals("java from PATH\n", output);
+        assertEquals(new Launch(0, "java from PATH\n"), launch);
+    }
+
+    @Test
+    void installMinDistLauncherRefusesAJavaHomeWithoutJava() throws Exception {
+        // Like installDist's Gradle start script: a JAVA_HOME without bin/java is an error, not a reason to try PATH
+        run("installMinDist");
+        var notAJdk = Files.createDirectories(projectDir.resolve("not-a-jdk"));
+        fakeJava("path-bin", "java from PATH");
+
+        var launch = runLauncher(Map.of("JAVA_HOME", notAJdk.toString(),
+                "PATH", projectDir.resolve("path-bin") + ":/usr/bin:/bin"));
+
+        assertEquals(new Launch(1, "ERROR: JAVA_HOME is set to an invalid directory: " + notAJdk + "\n"), launch);
     }
 
     private void useToolchain25() throws IOException {
@@ -316,8 +329,12 @@ class KiteProviderPluginFunctionalTest {
         return java.getParent().getParent();
     }
 
-    /** Runs the minimized distribution's launcher with exactly {@code env} and returns its output. */
-    private String runLauncher(Map<String, String> env) throws Exception {
+    /** Exit code and combined stdout and stderr of one launcher run. */
+    private record Launch(int exitCode, String output) {
+    }
+
+    /** Runs the minimized distribution's launcher with exactly {@code env}. */
+    private Launch runLauncher(Map<String, String> env) throws Exception {
         var builder = new ProcessBuilder(projectDir.resolve("build/install/demo-min/bin/provider").toString())
                 .redirectErrorStream(true);
         builder.environment().clear();
@@ -325,7 +342,7 @@ class KiteProviderPluginFunctionalTest {
         var process = builder.start();
         var output = new String(process.getInputStream().readAllBytes());
         assertTrue(process.waitFor(30, TimeUnit.SECONDS));
-        return output;
+        return new Launch(process.exitValue(), output);
     }
 
     private BuildResult run(String task) {
