@@ -455,7 +455,7 @@ gpg --list-keys --keyid-format SHORT
 
 ## Requirements
 
-- Java 21+
+- Java 25+
 - Gradle 8.0+
 
 ## Related Projects
