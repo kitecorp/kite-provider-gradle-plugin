@@ -1,6 +1,5 @@
 # Kite Provider Gradle Plugin
 
-[![CI](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/kitecorp/kite-provider-gradle-plugin/actions/workflows/ci.yml)
 [![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/cloud.kitelang.provider)](https://plugins.gradle.org/plugin/cloud.kitelang.provider)
 [![Maven Central](https://img.shields.io/maven-central/v/cloud.kitelang/kite-provider-gradle-plugin)](https://central.sonatype.com/artifact/cloud.kitelang/kite-provider-gradle-plugin)
 
@@ -11,7 +10,6 @@ Gradle plugin that simplifies building infrastructure providers for [Kite](https
 - Automatically configures Java, Application, and Shadow plugins
 - Generates `provider.json` manifest for provider discovery (both in distribution and as JAR resource)
 - Creates distribution packages with launcher scripts
-- Injects Kite Provider SDK dependency
 - Auto-detects mainClass by scanning for `extends ProviderServer` or `extends KiteProvider`
 - Configures shadow JAR with proper manifest
 
@@ -113,6 +111,12 @@ Build and install locally:
 
 ### Basic Configuration
 
+The plugin does not add the Kite Provider SDK: the build depends on it from Maven Central, as
+`cloud.kitelang:kite-provider-sdk`, twice. `implementation` compiles the provider against it, and
+`annotationProcessor` runs the SDK's annotation processor, which lists the provider's resource types in
+`META-INF/kite/resource-types.txt` for the provider to find at runtime. The SDK is compiled for Java 25,
+so the toolchain must be 25 or newer.
+
 ```groovy
 plugins {
     id 'cloud.kitelang.provider' version '0.6.0'
@@ -121,13 +125,27 @@ plugins {
 group = 'com.example'
 version = '1.0.0'
 
+repositories {
+    mavenCentral()
+}
+
 kiteProvider {
     name = 'my-provider'
 }
 
 dependencies {
+    // The Kite Provider SDK
+    implementation 'cloud.kitelang:kite-provider-sdk:0.4.0'
+    annotationProcessor 'cloud.kitelang:kite-provider-sdk:0.4.0'
+
     // Add your provider-specific dependencies
     implementation 'software.amazon.awssdk:ec2:2.40.7'
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
 }
 ```
 
@@ -311,6 +329,10 @@ kiteProvider {
 }
 
 dependencies {
+    // The Kite Provider SDK, see Basic Configuration
+    implementation 'cloud.kitelang:kite-provider-sdk:0.4.0'
+    annotationProcessor 'cloud.kitelang:kite-provider-sdk:0.4.0'
+
     // Lombok (optional)
     compileOnly 'org.projectlombok:lombok:1.18.44'
     annotationProcessor 'org.projectlombok:lombok:1.18.44'
@@ -413,7 +435,7 @@ Or trigger the GitHub Action by creating a release.
 
 This project uses GitHub Actions for:
 
-- **CI** (`ci.yml`) - Builds and tests on every push/PR to main
+- **Auto Release on Version Change** (`publish.yml`) - When a push to main changes `build.gradle` and the version has no release yet, creates the `v<version>` release and runs the three workflows below
 - **Publish to Gradle Plugin Portal** (`publish-gradle-portal.yml`) - Publishes on release
 - **Publish to GitHub Packages** (`publish-github-packages.yml`) - Publishes on release
 - **Publish to Maven Central** (`publish-maven-central.yml`) - Publishes on release

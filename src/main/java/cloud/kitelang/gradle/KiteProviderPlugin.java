@@ -26,17 +26,25 @@ import java.util.List;
  * <p>
  * Applies necessary plugins and configures:
  * <ul>
- *   <li>Java compilation with SDK dependency</li>
+ *   <li>Java plugin</li>
  *   <li>Application plugin with main class</li>
  *   <li>Shadow plugin for fat JAR creation</li>
  *   <li>provider.json manifest generation</li>
  *   <li>Distribution tasks for deployment</li>
  * </ul>
  * <p>
+ * It does not add the Kite Provider SDK; the build depends on it itself, as
+ * {@code implementation} and {@code annotationProcessor}.
+ * <p>
  * Usage:
  * <pre>
  * plugins {
  *     id 'cloud.kitelang.provider'
+ * }
+ *
+ * dependencies {
+ *     implementation 'cloud.kitelang:kite-provider-sdk:0.4.0'
+ *     annotationProcessor 'cloud.kitelang:kite-provider-sdk:0.4.0'
  * }
  *
  * kiteProvider {
